@@ -70,3 +70,17 @@ Still required: signed platform setup, independently verified USDC global config
 ## Configured platform identity
 
 Platform owner and fee-collection wallet: `85a8ERAhk1ZPYyGwj4zkjVKZdfqaEUcSpTt9GCz5xA7j`. The devnet platform PDA derived from that owner is `Cg4vFQ1kyiNzCXWiiydiXJRB6B4GSnDEhoHVFkrtiiTV`. These public identifiers are maintained in the Render Blueprint. A derived address is not evidence that the platform account has been created. The backend verifies its owner-derived PDA before accepting configuration. This does not grant ledger-operator privileges or authorize any wallet transaction.
+
+## Owner setup and Circle-only testing
+
+The user selected **Circle USDC only**, including on devnet. The canonical test mint is `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU` (Circle official address registry). The backend now rejects a substitute quote mint. On 2026-11-06, RPC enumeration of the five deployed LaunchLab GlobalConfig accounts found no config for this mint. Do not enable minting with Raydium’s separately named test USDC or wrapped SOL. Global configs require protocol-admin management.
+
+`#setup` is an owner setup page. Connect the configured wallet on `#create`, then follow **Platform setup**. Public GET `/api/platform` checks devnet genesis, owner balance, canonical platform PDA, configured CPMM account and compatible Circle-USDC global configs. Owner-authenticated POST `/api/platform/prepare`, `/submit` and `/confirm` prepare, relay and verify platform creation. Existing session, Origin and CSRF controls apply.
+
+The setup transaction atomically creates the platform (12500 / 1000000 platform fee, zero extra curve creator fee, no vesting or transfer-fee authority) and assigns the post-graduation CPMM creator to the fee wallet. Proposed migrated LP policy is 100% locked, 0% burned; the platform owner receives the Fee Key. Devnet CPMM config `7K5fZrc5LPZjDSvQZ1LmWJJoas86PX55YWBDuFqsP4qN` was verified on-chain at 2500 trade fee and 12500 creator fee, with pool creation enabled. This does not enforce 40/60 splitting or reinvestment and is not proof of any terminal’s support.
+
+Preparation simulates without broadcasting, validates the simulated resulting account, and compares payer debit with account rent plus quoted network fee. The browser presents recipients, rates, LP rights and estimated devnet cost before wallet signing. Relay accepts only the exact prepared message and a current blockhash; newly prepared reviews supersede prior unsigned ones. Finalization checks the on-chain platform settings. Preparing a platform does not enable token launches, swaps, live candles or automation.
+
+A funded-wallet unsigned simulation succeeded on 2026-11-06: 0.00544576 SOL rent + 0.000005 SOL network fee = 0.00545076 devnet SOL. No wallet signature or broadcast was performed by the agent. Preparations are rebuilt at review time; costs are re-estimated then.
+
+References: https://developers.circle.com/stablecoins/usdc-contract-addresses and Raydium's published LaunchLab GlobalConfig/PlatformConfig documentation and SDK 0.2.84-alpha.

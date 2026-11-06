@@ -30,3 +30,5 @@ services:
         value: "Cg4vFQ1kyiNzCXWiiydiXJRB6B4GSnDEhoHVFkrtiiTV"
       - key: SOLANA_RPC_URL
         value: "https://api.devnet.solana.com"
+      - key: DEVNET_USDC_MINT
+        value: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"

@@ -3,7 +3,7 @@ import { Connection, PublicKey, Keypair, VersionedTransaction } from '@solana/we
 import { Raydium, DEVNET_PROGRAM_ID, PlatformConfig, LaunchpadConfig, LaunchpadPool, TxVersion, getPdaLaunchpadPoolId, getPdaPlatformId } from '@raydium-io/raydium-sdk-v2';
 import BN from 'bn.js';
 import { assert, AppError } from './domain.js';
-const DEVNET_GENESIS='EtWTRABZaYq6iMfeYKouRu166VU2xqa1';
+export const DEVNET_GENESIS='EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG';
 const TOKEN_PROGRAM=new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const discriminator=name=>createHash('sha256').update('account:'+name).digest().subarray(0,8);
 export function decodeAccount(info,layout,name,owner){assert(info&&info.owner.equals(owner),`${name} account missing or wrong program`,503);assert(info.data.length>=layout.span&&info.data.subarray(0,8).equals(discriminator(name)),`Invalid ${name} account`,503);return layout.decode(info.data)}
@@ -31,6 +31,7 @@ export function createChain(store,env=process.env){
  async function verify(){
   assert((env.SOLANA_NETWORK||'devnet')==='devnet','Mainnet execution is not enabled by this release',503);
   assert(!missing.length,'Missing deployment configuration: '+missing.join(', '),503);
+  assert(env.DEVNET_USDC_MINT==='4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU','Only Circle-issued devnet USDC is allowed',503);
   const rpc=conn();assert(await rpc.getGenesisHash()===DEVNET_GENESIS,'RPC is not Solana devnet',503);
   const platformId=new PublicKey(env.RAYDIUM_PLATFORM_ID),configId=new PublicKey(env.RAYDIUM_GLOBAL_CONFIG_ID),quote=new PublicKey(env.DEVNET_USDC_MINT);
   assert(getPdaPlatformId(program,new PublicKey(env.PLATFORM_OWNER_WALLET)).publicKey.equals(platformId),'Platform does not belong to the configured owner',503);
