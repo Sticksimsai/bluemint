@@ -21,17 +21,26 @@
 
 .media-fallback .journey-popup{display:none;}
 
-/* Higgsfield royal mint sprite; the live coin lane remains independently data-driven. */
-.conveyor-scene{height:340px;background:radial-gradient(ellipse at 15% 65%,#184c8b3b,transparent 45%),linear-gradient(#0a1628ee,#0a1628ee),repeating-linear-gradient(90deg,transparent 0 31px,#4271b4 32px);}
+/* One mounted production line: sprite, outlet, belt and receiver share a baseline. */
+.conveyor-scene{height:310px;background:linear-gradient(0deg,#10244055,transparent 46%),repeating-linear-gradient(90deg,transparent 0 47px,#5486be08 48px),#0a1628;}
+.conveyor-workcell{position:relative;max-width:1040px;height:100%;margin:auto;--machine-size:220px;--machine-left:28px;}
+.conveyor-station-label{position:absolute;left:42px;right:36px;top:22px;font:6px/1.8 var(--arcade);letter-spacing:1px;color:#668bb9;display:flex;gap:140px;}.conveyor-station-label span{border-bottom:1px dashed #25466b;flex:1;padding-bottom:12px;}
 .conveyor-factory .mint-machine-art{display:none;}
-.conveyor-factory.machine-ready{left:8px;bottom:78px;width:280px;height:280px;border:0;background:none;box-shadow:none;clip-path:none;overflow:visible;}
-.conveyor-factory.machine-ready .mint-machine-art{display:block;width:100%;height:100%;object-fit:contain;image-rendering:pixelated;filter:drop-shadow(5px 7px 0 #030917);}
+.conveyor-factory.machine-ready{left:var(--machine-left);bottom:64px;width:var(--machine-size);height:var(--machine-size);border:0;background:none;box-shadow:none;clip-path:none;overflow:visible;}
+.conveyor-factory.machine-ready .mint-machine-art{display:block;width:100%;height:100%;object-fit:contain;image-rendering:pixelated;filter:brightness(.93) saturate(.86);}
 .conveyor-factory.machine-ready>span,.conveyor-factory.machine-ready>i{display:none;}
 .conveyor-factory.machine-ready.is-stamping .mint-machine-art{animation:mintStamp .5s steps(3,end);}
-@keyframes mintStamp{0%,100%{translate:0 0;filter:drop-shadow(5px 7px 0 #030917)}40%{translate:0 2px;filter:drop-shadow(5px 7px 0 #030917) brightness(1.25)}}
-.conveyor-items{left:220px;}.conveyor-belt{left:160px;}.conveyor-idle{left:320px;top:112px;}
-@media(max-width:650px){.conveyor-scene{height:300px;}.conveyor-factory.machine-ready{left:0;width:200px;height:200px;bottom:80px;}.conveyor-items{left:140px;}.conveyor-belt{left:100px;}.conveyor-idle{left:200px;top:75px;right:12px;font-size:12px;}.conveyor-idle small{line-height:1.6;}}
-@media(prefers-reduced-motion:reduce){.conveyor-factory.machine-ready.is-stamping .mint-machine-art{animation:none;}.conveyor-items{left:280px;}}@media(max-width:650px) and (prefers-reduced-motion:reduce){.conveyor-items{left:195px;}}
-/* Align the generated outlet with the physical belt surface. */
-.conveyor-scene{height:380px;}.conveyor-factory.machine-ready{bottom:94px;}.conveyor-coin .coin-face{order:2;}.conveyor-coin .coin-ticker{order:1;}
-@media(max-width:650px){.conveyor-scene{height:300px;}.conveyor-factory.machine-ready{bottom:94px;}}
+@keyframes mintStamp{0%,100%{translate:0 0;filter:brightness(.93) saturate(.86)}40%{translate:0 2px;filter:brightness(1.12) saturate(.86)}}
+.conveyor-plinth{position:absolute;left:28px;bottom:44px;width:220px;height:25px;border:2px solid #365882;border-top:4px solid #688dbb;background:repeating-linear-gradient(90deg,#183455 0 16px,#122941 16px 20px);clip-path:var(--pixel-cut);z-index:1;}
+.conveyor-floor{position:absolute;left:28px;right:28px;bottom:32px;height:12px;background:#08111e;border-top:2px solid #203d61;box-shadow:0 4px #040c18;}
+.conveyor-belt{left:196px;right:48px;bottom:44px;height:32px;border:2px solid #456b98;box-shadow:0 4px #060e1c;z-index:1;}
+.conveyor-treads{height:12px;border-bottom:2px solid #7d9fcb;background:repeating-linear-gradient(90deg,#28517e 0 14px,#527aaa 14px 17px,#102a49 17px 20px);animation:beltMove .85s linear infinite;}
+@keyframes beltMove{to{background-position:20px 0}}
+.conveyor-rollers{height:16px;border-top:2px solid #091427;background:repeating-linear-gradient(90deg,#34547b 0 4px,#091a2e 4px 13px,#34547b 13px 17px,#16324d 17px 32px);}
+.conveyor-items{left:204px;right:48px;bottom:76px;height:88px;overflow:hidden;z-index:2;}
+.conveyor-coin{width:58px;gap:7px;}.conveyor-coin .coin-face{order:2;width:44px;height:44px;border-width:3px;box-shadow:inset 0 0 0 3px #18448e,3px 3px #03102a;}.conveyor-coin .coin-face canvas{width:32px;height:32px;}.conveyor-coin .coin-ticker{order:1;font-size:6px;padding:4px;}
+.conveyor-receiver{position:absolute;right:28px;bottom:44px;width:44px;height:74px;background:#17385e;border:3px solid #4b76a8;box-shadow:inset -5px 0 #0b2340;clip-path:var(--pixel-cut);z-index:4;}
+.conveyor-receiver span{display:block;font:6px/1.8 var(--arcade);text-align:center;color:#afd0ff;padding:8px 0;border-bottom:2px solid #3e658e;}.conveyor-receiver i{display:block;margin:7px 5px 0;width:26px;height:28px;border-radius:0;background:#030c18;border-top:3px solid #0b203a;}
+.conveyor-idle{left:286px;right:94px;top:103px;text-align:left;font-size:14px;border-left:2px solid #315786;padding:6px 0 6px 18px;}.conveyor-idle small{margin-top:8px;font-size:11px;}
+@media(max-width:650px){.conveyor-scene{height:280px;}.conveyor-workcell{--machine-size:170px;--machine-left:8px;}.conveyor-factory.machine-ready{bottom:64px;}.conveyor-plinth{left:8px;width:170px;}.conveyor-belt{left:138px;right:22px;}.conveyor-items{left:146px;right:22px;}.conveyor-floor{left:8px;right:10px;}.conveyor-receiver{right:10px;width:32px;height:60px;}.conveyor-receiver span{font-size:5px;padding:5px 0;}.conveyor-receiver i{width:18px;margin:5px 3px;}.conveyor-station-label{left:18px;right:18px;top:16px;gap:24px;font-size:5px;}.conveyor-idle{left:188px;right:18px;top:81px;font-size:11px;padding-left:10px;}.conveyor-idle small{font-size:10px;line-height:1.7;}.conveyor-coin{width:48px;}.conveyor-coin .coin-face{width:36px;height:36px;}.conveyor-coin .coin-face canvas{width:24px;height:24px;}.conveyor-coin .coin-ticker{font-size:5px;}}
+@media(prefers-reduced-motion:reduce){.conveyor-factory.machine-ready.is-stamping .mint-machine-art,.conveyor-treads{animation:none;}.conveyor-items{left:258px;}.conveyor-receiver{display:none;}}@media(max-width:650px) and (prefers-reduced-motion:reduce){.conveyor-items{left:182px;}}
