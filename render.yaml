@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: bluemint-api
+    runtime: node
+    region: frankfurt
+    plan: starter
+    buildCommand: npm ci && npm test
+    startCommand: npm start
+    healthCheckPath: /api/health
+    disk:
+      name: bluemint-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 24.22.1
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /var/data
+      - key: SOLANA_NETWORK
+        value: devnet
+      - key: ADMIN_WALLETS
+        value: ""

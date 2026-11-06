@@ -1,0 +1,1 @@
+{"name":"bluemint","version":"0.1.0","private":true,"type":"module","engines":{"node":">=24.15 <25"},"scripts":{"start":"node server/index.js","test":"node --test test/*.test.js","check":"node --check server/index.js && node --check server/domain.js && node --check dist/backend.js"}}
