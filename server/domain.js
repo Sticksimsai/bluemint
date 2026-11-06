@@ -1,5 +1,5 @@
 import { createHash, createPublicKey, verify } from 'node:crypto';
-export const POLICY=Object.freeze({version:'1',quoteAsset:'Circle USDC',usdcMainnetMint:'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',decimals:6,launchpadBps:125,treasuryBps:50,liquidityBps:75,holderRewards:false,raydiumFeesAdditional:true,rounding:'Floor total fee and treasury share; remainder to token liquidity',enforcement:'Accounting policy only; on-chain enforcement not deployed'});
+export const POLICY=Object.freeze({version:'2',developerBuyLiquidityBps:5000,developerBuyLiquidityEnforced:false,quoteAsset:'Circle USDC',usdcMainnetMint:'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',decimals:6,launchpadBps:125,treasuryBps:50,liquidityBps:75,holderRewards:false,raydiumFeesAdditional:true,rounding:'Floor total fee and treasury share; remainder to token liquidity',enforcement:'Accounting policy only; on-chain enforcement not deployed'});
 export class AppError extends Error{constructor(status,message){super(message);this.status=status}}
 export function assert(ok,message,status=400){if(!ok)throw new AppError(status,message)}
 export function units(value){assert(typeof value==='string'&&/^\d{1,18}$/.test(value),'Amount must be an unsigned integer string in atomic units');const n=BigInt(value);assert(n<=100000000000000000n,'Amount exceeds limit');return n}

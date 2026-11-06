@@ -40,7 +40,7 @@ This SQLite configuration supports one service instance, not horizontal scaling.
 ## Required before real financial activity
 1. Implement and verify LaunchLab platform configuration and separate post-graduation CPMM fee rights; do not assume fees survive graduation or apply on every terminal or alternate pool.
 2. Build wallet-signed transaction preparation, simulation, slippage/expiry controls, confirmations, USDC mint validation and indexer reconciliation.
-3. Define seed contribution ownership/refunds, acquire both pool assets, and verify LP custody/locking. A buy is not automatically liquidity and funds must not be sent to a mint address.
+3. Implement the 50% developer-buy liquidity allocation, define ownership/refunds, acquire both pool assets, and verify LP custody/locking. A buy is not automatically liquidity and funds must not be sent to a mint address.
 4. Implement idempotent on-chain fee collection and buy/pair/add liquidity execution with inventory, minimum batch and price-impact limits. Use verified receipts, not operator reports, for production accounting.
 5. Add live candles and test each target terminal. Conduct independent contract/security review and devnet end-to-end tests before mainnet activation.
 
@@ -82,3 +82,7 @@ The network-aware builder uses the selected LaunchLab program and official quote
 Remaining: funded wallet-reviewed platform creation, launch economics and lifecycle reconciliation, immutable metadata policy, mint execution verification, swaps, live candles, terminal compatibility tests, verified fee receipts, split accounting against net receipts, buy/pair/add execution and LP lock verification.
 
 References: https://developers.circle.com/stablecoins/usdc-contract-addresses and https://github.com/raydium-io/raydium-docs-v1/tree/main/products/launchlab. SDK pinned to 0.2.84-alpha.
+
+## Developer-buy liquidity policy
+
+The separate seed commitment input and review amount have been removed. The requested policy allocates 50% of the developer’s USDC buy amount to that token’s liquidity, separate from ongoing trading fees. `/api/config` publishes `developerBuyLiquidityBps: 5000` and `developerBuyLiquidityEnforced: false`. Developer buys and the allocation are not executable yet; create-only minting stays disabled and makes no initial buy. Historical `seedUnits` are retained as legacy draft data, not treated as deposits or developer buys. New UI drafts omit that field and default to zero in storage.
