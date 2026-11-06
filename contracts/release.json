@@ -1,0 +1,8 @@
+{
+  "programId": "9YKKi1RQgT8uco9Cecj849btWboxQ2qxYA4GXmYGHLkE",
+  "qualified": true,
+  "binarySha256": "767f35a78a3339cf56fa07b899c87a2300b7c75743903e794673452e2afd2f32",
+  "binaryLength": 321616,
+  "integrationReport": "docs/contract-validation.md",
+  "reason": "Local SBF integration checks passed; mainnet deployment and owner funding are still required."
+}

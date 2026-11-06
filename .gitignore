@@ -10,3 +10,8 @@ data/
 research/
 
 dist/wallet-runtime.js
+/deploy/*keypair*.json
+/target/
+
+/deploy/*.so
+/deploy/*.json

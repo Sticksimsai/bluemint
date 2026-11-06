@@ -10,10 +10,18 @@
     "start": "node server/index.js",
     "test": "node --test test/*.test.js",
     "check": "node --check server/index.js && node --check server/domain.js && node --check dist/backend.js",
-    "build": "esbuild client/wallet.js --bundle --format=iife --global-name=BlueMintWallet --outfile=dist/wallet-runtime.js --minify"
+    "build": "esbuild client/wallet.js --bundle --format=iife --global-name=BlueMintWallet --outfile=dist/wallet-runtime.js --minify",
+    "keeper": "node server/keeper.js",
+    "test:contract": "cargo test --locked -p bluemint-vault",
+    "build:contract": "cargo-build-sbf --tools-version v1.58 --manifest-path programs/bluemint-vault/Cargo.toml --sbf-out-dir deploy",
+    "test:integration": "node scripts/test-local-contract.mjs",
+    "test:recovery": "MATURE_TEST=true node scripts/test-local-contract.mjs",
+    "fixtures:local": "node scripts/prepare-local-fixtures.mjs"
   },
   "dependencies": {
+    "@metaplex-foundation/mpl-token-metadata": "2.13.0",
     "@raydium-io/raydium-sdk-v2": "0.2.84-alpha",
+    "@solana/spl-token": "0.4.14",
     "@solana/web3.js": "1.98.4",
     "bn.js": "5.2.2"
   },

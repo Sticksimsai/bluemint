@@ -1,0 +1,12 @@
+import assert from'node:assert/strict';import{readFileSync}from'node:fs';
+import{Connection,Keypair,Transaction,sendAndConfirmTransaction,ComputeBudgetProgram}from'@solana/web3.js';import{getAccount}from'@solana/spl-token';
+import{vaultAddresses,vaultInstruction,decodeVault}from'../../server/vault-abi.js';
+const url=process.env.LOCAL_RPC_URL;assert.match(url,/^http:\/\/(127\.0\.0\.1|localhost):\d+$/);const rpc=new Connection(url,'confirmed');assert.notEqual(await rpc.getGenesisHash(),'5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d');
+const owner=Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync('research/fixtures/local-payer.json')))),m=JSON.parse(readFileSync('research/mature-manifest.json'));
+const a=vaultAddresses(m.mint,owner.publicKey),b=vaultAddresses(m.refundMint,owner.publicKey);
+const send=ix=>sendAndConfirmTransaction(rpc,new Transaction().add(ComputeBudgetProgram.setComputeUnitLimit({units:1000000}),ix),[owner],{commitment:'confirmed'});
+const before=decodeVault(await rpc.getAccountInfo(a.launch),a),lpBefore=(await getAccount(rpc,a.lpVault)).amount;
+await send(vaultInstruction('reinvest',a));const after=decodeVault(await rpc.getAccountInfo(a.launch),a);assert.ok(BigInt(after.reinvestedQuote)>0n);assert.equal(BigInt(before.pendingQuote)-BigInt(after.pendingQuote),BigInt(after.reinvestedQuote));assert.ok((await getAccount(rpc,a.lpVault)).amount>lpBefore);
+const quoteBefore=(await getAccount(rpc,b.ownerQuote)).amount,refundLp=(await getAccount(rpc,b.lpVault)).amount;
+await send(vaultInstruction('refund_expired_buy',b));const refunded=decodeVault(await rpc.getAccountInfo(b.launch),b);assert.equal(refunded.buyRefunded,true);assert.equal(refunded.pendingBuy,'0');assert.equal((await getAccount(rpc,b.ownerQuote)).amount-quoteBefore,50000000n);assert.equal((await getAccount(rpc,b.lpVault)).amount,refundLp);await assert.rejects(send(vaultInstruction('refund_expired_buy',b)));
+console.log(JSON.stringify({result:'passed',checks:['mature-window reinvestment','LP balance increases','pending budget conservation','expired buy refund','seeded LP unchanged by refund','duplicate refund rejected'],fixture:'synthetic matured oracle and expired deadline over actual CPMM launch snapshot'}));

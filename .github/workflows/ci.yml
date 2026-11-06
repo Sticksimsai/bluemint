@@ -12,3 +12,4 @@ jobs:
       - run: npm run build
       - run: npm test
       - run: npm run check
+      - run: cargo test --locked -p bluemint-vault
