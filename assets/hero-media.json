@@ -9,6 +9,14 @@
       "url": "https://d8j0ntlcm91z4.cloudfront.net/user_38mxUVWFOcVXT8mCZ9tfkU8JtiI/hf_20261106_154005_ec196f03-6096-43a0-a60e-b65d3fac06e7.mp4",
       "bytes": 2875077,
       "sha256": "138d254aad3cf9e7b55ed4b2ceeca5fd440c422bf56e8d3c0746ebeda28ed5bf"
+    },
+    {
+      "filename": "mint-machine.png",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_38mxUVWFOcVXT8mCZ9tfkU8JtiI/hf_20261106_164442_1c07993e-0830-4986-8a41-1aadaef7f987.png",
+      "bytes": 1051234,
+      "sha256": "8796dfdf3ff1d89b5367ee7b4653a9d1655064a73ef2442bafee289bd21e1ac1",
+      "model": "gpt_image_2_6",
+      "jobId": "1c07993e-0830-4986-8a41-1aadaef7f987"
     }
   ]
 }

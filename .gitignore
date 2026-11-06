@@ -17,3 +17,5 @@ dist/wallet-runtime.js
 /deploy/*.json
 
 /dist/assets/mint-runthrough.mp4
+
+/dist/assets/mint-machine.png

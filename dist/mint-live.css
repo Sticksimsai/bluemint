@@ -20,3 +20,18 @@
 @media(prefers-reduced-motion:reduce){.journey-popup{display:none}.conveyor-treads,.conveyor-coin{animation:none;}.conveyor-items{left:150px;right:20px;display:flex;gap:12px;overflow:hidden;align-items:end;}.conveyor-coin{position:static;flex-shrink:0;}.conveyor-idle small{font-size:0}.conveyor-idle small:after{content:'Waiting for confirmed tokens.';font-size:12px;}}
 
 .media-fallback .journey-popup{display:none;}
+
+/* Higgsfield royal mint sprite; the live coin lane remains independently data-driven. */
+.conveyor-scene{height:340px;background:radial-gradient(ellipse at 15% 65%,#184c8b3b,transparent 45%),linear-gradient(#0a1628ee,#0a1628ee),repeating-linear-gradient(90deg,transparent 0 31px,#4271b4 32px);}
+.conveyor-factory .mint-machine-art{display:none;}
+.conveyor-factory.machine-ready{left:8px;bottom:78px;width:280px;height:280px;border:0;background:none;box-shadow:none;clip-path:none;overflow:visible;}
+.conveyor-factory.machine-ready .mint-machine-art{display:block;width:100%;height:100%;object-fit:contain;image-rendering:pixelated;filter:drop-shadow(5px 7px 0 #030917);}
+.conveyor-factory.machine-ready>span,.conveyor-factory.machine-ready>i{display:none;}
+.conveyor-factory.machine-ready.is-stamping .mint-machine-art{animation:mintStamp .5s steps(3,end);}
+@keyframes mintStamp{0%,100%{translate:0 0;filter:drop-shadow(5px 7px 0 #030917)}40%{translate:0 2px;filter:drop-shadow(5px 7px 0 #030917) brightness(1.25)}}
+.conveyor-items{left:220px;}.conveyor-belt{left:160px;}.conveyor-idle{left:320px;top:112px;}
+@media(max-width:650px){.conveyor-scene{height:300px;}.conveyor-factory.machine-ready{left:0;width:200px;height:200px;bottom:80px;}.conveyor-items{left:140px;}.conveyor-belt{left:100px;}.conveyor-idle{left:200px;top:75px;right:12px;font-size:12px;}.conveyor-idle small{line-height:1.6;}}
+@media(prefers-reduced-motion:reduce){.conveyor-factory.machine-ready.is-stamping .mint-machine-art{animation:none;}.conveyor-items{left:280px;}}@media(max-width:650px) and (prefers-reduced-motion:reduce){.conveyor-items{left:195px;}}
+/* Align the generated outlet with the physical belt surface. */
+.conveyor-scene{height:380px;}.conveyor-factory.machine-ready{bottom:94px;}.conveyor-coin .coin-face{order:2;}.conveyor-coin .coin-ticker{order:1;}
+@media(max-width:650px){.conveyor-scene{height:300px;}.conveyor-factory.machine-ready{bottom:94px;}}
