@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { Connection, PublicKey, Keypair, VersionedTransaction } from '@solana/web3.js';
-import { Raydium, DEVNET_PROGRAM_ID, PlatformConfig, LaunchpadConfig, LaunchpadPool, TxVersion, getPdaLaunchpadPoolId } from '@raydium-io/raydium-sdk-v2';
+import { Raydium, DEVNET_PROGRAM_ID, PlatformConfig, LaunchpadConfig, LaunchpadPool, TxVersion, getPdaLaunchpadPoolId, getPdaPlatformId } from '@raydium-io/raydium-sdk-v2';
 import BN from 'bn.js';
 import { assert, AppError } from './domain.js';
 const DEVNET_GENESIS='EtWTRABZaYq6iMfeYKouRu166VU2xqa1';
@@ -23,7 +23,7 @@ export function validateRelay(serialized,expectedMessage,wallet){
  assert(tx.signatures.every(s=>s.some(b=>b!==0)),'Transaction signatures are missing');return tx;
 }
 export function createChain(store,env=process.env){
- const required=['SOLANA_RPC_URL','RAYDIUM_PLATFORM_ID','RAYDIUM_GLOBAL_CONFIG_ID','PLATFORM_FEE_WALLET','DEVNET_USDC_MINT','LAUNCH_RAISE_USDC_UNITS'];
+ const required=['SOLANA_RPC_URL','RAYDIUM_PLATFORM_ID','PLATFORM_OWNER_WALLET','RAYDIUM_GLOBAL_CONFIG_ID','PLATFORM_FEE_WALLET','DEVNET_USDC_MINT','LAUNCH_RAISE_USDC_UNITS'];
  const missing=required.filter(k=>!env[k]);let connection;
  function conn(){if(!connection){assert(/^https:\/\//.test(env.SOLANA_RPC_URL||''),'HTTPS RPC required',503);connection=new Connection(env.SOLANA_RPC_URL,{commitment:'confirmed',disableRetryOnRateLimit:true,fetch:(u,o)=>fetch(u,{...o,signal:AbortSignal.timeout(12000)})})}return connection}
  store.db.exec(`CREATE TABLE IF NOT EXISTS chain_launches(launch_id TEXT PRIMARY KEY REFERENCES launches(id),mint TEXT UNIQUE NOT NULL,pool TEXT NOT NULL,serialized_tx TEXT NOT NULL,message TEXT NOT NULL,expires INTEGER NOT NULL,status TEXT NOT NULL,signature TEXT,created_at TEXT NOT NULL);`);
@@ -33,6 +33,7 @@ export function createChain(store,env=process.env){
   assert(!missing.length,'Missing deployment configuration: '+missing.join(', '),503);
   const rpc=conn();assert(await rpc.getGenesisHash()===DEVNET_GENESIS,'RPC is not Solana devnet',503);
   const platformId=new PublicKey(env.RAYDIUM_PLATFORM_ID),configId=new PublicKey(env.RAYDIUM_GLOBAL_CONFIG_ID),quote=new PublicKey(env.DEVNET_USDC_MINT);
+  assert(getPdaPlatformId(program,new PublicKey(env.PLATFORM_OWNER_WALLET)).publicKey.equals(platformId),'Platform does not belong to the configured owner',503);
   const [p,c,m]=await rpc.getMultipleAccountsInfo([platformId,configId,quote]);
   const platform=decodeAccount(p,PlatformConfig,'PlatformConfig',program),config=decodeAccount(c,LaunchpadConfig,'GlobalConfig',program);
   verifyPolicy(platform,config,{feeWallet:env.PLATFORM_FEE_WALLET,quoteMint:quote.toBase58()});
@@ -41,7 +42,7 @@ export function createChain(store,env=process.env){
  }
  const publicRow=row=>row?{mint:row.mint,pool:row.pool,status:row.status,signature:row.signature,expires:row.expires,network:'devnet'}:null;
  return {
- async status(){let issue;try{await verify()}catch(e){issue=e.status?e.message:'RPC/config verification unavailable'}return {network:env.SOLANA_NETWORK||'devnet',platformFeeConnected:!issue,feeRateBps:125,splitEnforcedOnchain:false,postGraduationFeeConnected:false,mintPreparationReady:!issue&&env.ENABLE_DEVNET_MINTING==='true',executionMode:'devnet_wallet_signed',missing,issue:issue||null,automationEnabled:false,liveTrading:false}},
+ async status(){let issue;try{await verify()}catch(e){issue=e.status?e.message:'RPC/config verification unavailable'}return {network:env.SOLANA_NETWORK||'devnet',platformFeeConnected:!issue,feeRateBps:125,splitEnforcedOnchain:false,postGraduationFeeConnected:false,mintPreparationReady:!issue&&env.ENABLE_DEVNET_MINTING==='true',executionMode:'devnet_wallet_signed',platformOwner:env.PLATFORM_OWNER_WALLET||null,feeWallet:env.PLATFORM_FEE_WALLET||null,platformId:env.RAYDIUM_PLATFORM_ID||null,missing,issue:issue||null,automationEnabled:false,liveTrading:false}},
  get:id=>publicRow(store.db.prepare('SELECT * FROM chain_launches WHERE launch_id=?').get(id)),
  async prepare(item,origin){
   assert(env.ENABLE_DEVNET_MINTING==='true','Devnet mint preparation is not enabled',503);

@@ -66,3 +66,7 @@ Required operator settings are in `.env.example`: HTTPS RPC, platform ID, global
 Tests cover fee-unit mismatch, unexpected fee recipient/quote mint, restricted config rejection, altered transaction rejection, unsigned transactions, and fail-closed configuration. No funded devnet end-to-end transaction has been run. The current deployed settings leave this feature disabled.
 
 Still required: signed platform setup, independently verified USDC global config, devnet integration tests, immutable metadata hosting/lock policy, mainnet transaction lifecycle, swap builder/indexer and live trade candles, per-token receipt-backed fee collection/splitting, buy/pair/add executor and LP lock verification. LaunchLab curve platform fees do not automatically enforce a 40/60 split or preserve 1.25% after graduation.
+
+## Configured platform identity
+
+Platform owner and fee-collection wallet: `85a8ERAhk1ZPYyGwj4zkjVKZdfqaEUcSpTt9GCz5xA7j`. The devnet platform PDA derived from that owner is `Cg4vFQ1kyiNzCXWiiydiXJRB6B4GSnDEhoHVFkrtiiTV`. These public identifiers are maintained in the Render Blueprint. A derived address is not evidence that the platform account has been created. The backend verifies its owner-derived PDA before accepting configuration. This does not grant ledger-operator privileges or authorize any wallet transaction.

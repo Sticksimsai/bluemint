@@ -22,3 +22,11 @@ services:
         value: devnet
       - key: ADMIN_WALLETS
         value: ""
+      - key: PLATFORM_OWNER_WALLET
+        value: "85a8ERAhk1ZPYyGwj4zkjVKZdfqaEUcSpTt9GCz5xA7j"
+      - key: PLATFORM_FEE_WALLET
+        value: "85a8ERAhk1ZPYyGwj4zkjVKZdfqaEUcSpTt9GCz5xA7j"
+      - key: RAYDIUM_PLATFORM_ID
+        value: "Cg4vFQ1kyiNzCXWiiydiXJRB6B4GSnDEhoHVFkrtiiTV"
+      - key: SOLANA_RPC_URL
+        value: "https://api.devnet.solana.com"
