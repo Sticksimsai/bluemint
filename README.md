@@ -1,6 +1,6 @@
 # BlueMint
 
-USDC-first launchpad frontend and persistent backend preview. **Mainnet minting, swaps, fee collection and liquidity execution are not deployed. A disabled-by-default devnet mint preparation flow is implemented.**
+USDC-first launchpad frontend and persistent backend preview. **The Render deployment targets mainnet and native Circle USDC. Owner-signed platform setup is implemented; token minting, swaps, live charts, fee collection and liquidity execution remain disabled or unimplemented.**
 
 ## Run
 Requires Node 24.15+ (24.22.1 pinned for deployment).
@@ -18,7 +18,7 @@ Open http://localhost:3000. Set PUBLIC_URL to the exact browser origin when usin
 - Solana Ed25519 wallet challenge sign-in, single-use nonces, HttpOnly sessions and CSRF protection.
 - Persistent launch registry, validated profile images and HTTPS links, immutable saved profiles, idempotent creation and owner checks.
 - Persistent watchlists and server-sent refresh events.
-- Integer-only tokenomics: 125 basis points additional to Raydium fees, with 40% of collected launchpad fees allocated to the platform and 60% to that token’s liquidity budget. This corresponds to 0.50% and 0.75% of trade notional before rounding. No holder rewards.
+- Integer-only tokenomics: 125 basis points additional to Raydium fees, with 40% of collected launchpad fees allocated to the platform and 60% to that token’s liquidity budget. This corresponds to 0.50% and 0.75% of trade notional only if the full 1.25% reaches the collector. Mainnet CPMM currently deducts a default 5% protocol share from accrued creator fees at collection, so those gross allocations are not guaranteed. No holder rewards.
 - Append-only, per-token accounting with duplicate-reference and overspend checks. Ledger entries are explicitly operator reports, not verified blockchain receipts.
 - Constant-product buy-and-pair budget estimator. It is not an executable quote.
 - Same-origin frontend integration. Server-backed launches display no invented prices, liquidity or candles. The static Sites version remains a separate demo.
@@ -28,7 +28,7 @@ Public GET routes: /api/health, /api/config, /api/launches, /api/launches/:id, /
 
 Authentication: POST /api/auth/challenge and /api/auth/verify; GET /api/auth/me; POST /api/auth/logout. Mutation requests require the exact Origin. Authenticated mutations also require x-csrf-token returned by authentication.
 
-Signed-in routes: POST /api/launches (Idempotency-Key required), GET/POST /api/watchlist, POST /api/tokenomics/quote and /api/tokenomics/plan. POST /api/launches/:id/prepare deliberately returns 503 until blockchain integration exists. POST /api/admin/events requires an ADMIN_WALLETS allowlisted signer. Leave that setting empty to disable operator reporting.
+Signed-in routes: POST /api/launches (Idempotency-Key required), GET/POST /api/watchlist, POST /api/tokenomics/quote and /api/tokenomics/plan. POST /api/launches/:id/prepare returns 503 while ENABLE_TOKEN_MINTING is false or required configuration is missing. POST /api/admin/events requires an ADMIN_WALLETS allowlisted signer. Leave that setting empty to disable operator reporting.
 
 Amounts use integer atomic-unit strings: Circle USDC has six decimals. Client token names/tickers never determine the trusted quote mint. The proposed supply defaults to one billion tokens at six decimals; this is a draft parameter, not minted supply.
 
@@ -47,40 +47,38 @@ This SQLite configuration supports one service instance, not horizontal scaling.
 The reserved SOLANA_RPC_URL, RAYDIUM_PLATFORM_ID and TREASURY_WALLET settings do not activate these missing components. No private wallet keys are stored or requested.
 
 ## Validation
-npm test covers fee conservation, liquidity budget constraints, input rejection, database persistence/immutability, idempotency, wallet signatures, nonce replay, origin/CSRF checks, ownership and disabled financial execution. npm run check validates server/bridge syntax. Browser visual QA remains unverified. Frontend design history is in FRONTEND-HISTORY.md.
+npm test covers fee conservation, liquidity budget constraints, input rejection, database persistence/immutability, idempotency, wallet signatures, nonce replay, origin/CSRF checks, ownership and disabled financial execution. npm run check validates server/bridge syntax. The owner setup and launch-wallet navigation were checked in the deployed browser. Frontend design history is in FRONTEND-HISTORY.md.
 
-## Devnet mint integration (disabled by default)
+## Mainnet deployment and owner setup
 
-The launch page now owns wallet connection; the header is a pixel-style Mint a token action. Decorative northeast-arrow glyphs were removed.
+The Blueprint is the deployment source of truth. It selects mainnet, the mainnet RPC, and native Circle USDC. Code pins the genesis hash, program IDs, quote mint and CPMM policy per network; supplying a mismatched quote or RPC fails closed. Persisted preparations carry a network identifier, and legacy preparations migrate as devnet so they cannot be relayed on mainnet. The old ENABLE_DEVNET_MINTING flag no longer enables execution.
 
-`GET /api/chain/status` checks the configured RPC genesis, LaunchLab program ownership and account discriminators, platform fee (12500 / 1000000), zero creator fee, expected fee-collection wallet, and quote mint. It rejects unsupported restricted-rule platforms. This checks configured accounts; it does not deploy a fee splitter.
+Verified by read-only mainnet RPC on 2026-11-06:
 
-Owner-authenticated POST `/api/launches/:id/prepare` constructs and simulates a single SDK V0 create-only transaction. It creates the constant-product curve with 80% of draft supply for curve sale, no vesting, and an explicitly configured USDC fundraising target. It makes **no initial buy or seed deposit**. Multi-transaction results are rejected. The mint keypair exists only during preparation; no private keys are stored. The persisted partial transaction contains a mint signature, not its private key.
+| Setting | Value |
+| --- | --- |
+| Owner / fee collector | `85a8ERAhk1ZPYyGwj4zkjVKZdfqaEUcSpTt9GCz5xA7j` |
+| Owner-derived platform PDA | `3bucQpVsuemJMHNcMCdSGDzvnorZXYowNFQbBch6gLhz` |
+| Circle USDC quote | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+| Compatible GlobalConfig | `8gj14w8vkNZjJTPak6e96Uf1sY438WKheH4s5dHyxiRw` |
+| Selected CPMM config | `627Jx6eN61TrdgMFSQt1QxvAmYWHXmzVA8M9FsKFtdkX` |
 
-The browser asks the wallet to review/sign; POST `.../submit` rejects any change to the prepared message or payer, verifies signatures through RPC simulation, and broadcasts the signed transaction. POST `.../confirm` verifies the finalized canonical pool identity. GET `.../chain` reports preparation state. Draft profiles remain drafts in discovery until a full live-market/indexer integration exists; confirmed devnet state is shown separately.
+The global config uses a constant-product curve and a 0.25% protocol fee. Proposed platform fee is 1.25%, with zero extra curve creator fee. CPMM config has a separate 1.25% creator fee plus 0.25% trading fee. Its default creator-fee protocol share is 5% at collection, subject to per-creator overrides; this is not an extra 5% of trade volume. The 0.50% / 0.75% tokenomics are not enforced by platform setup. Automatic collection, net-receipt allocation and reinvestment need separate implementation.
 
-Preparation is idempotent per launch and expires after 60 seconds. Expired or uncertain preparations deliberately block replacement to prevent duplicate mints; reconciliation/recovery tooling is not implemented yet. Chain confirmation can recover a submitted transaction whose HTTP response was lost by checking the canonical pool. This is not production-ready lifecycle management.
+Connect the configured wallet on `#create`, then follow **Platform setup** (`#setup`). Public GET `/api/platform` checks genesis, owner balance, platform account, CPMM rates and compatible Circle USDC configs. Owner-authenticated POST `/api/platform/prepare`, `/submit` and `/confirm` prepare, relay and verify creation. Existing session, Origin and CSRF controls apply.
 
-Required operator settings are in `.env.example`: HTTPS RPC, platform ID, global config ID, fee wallet, devnet USDC mint, and fundraising target in atomic units. Enable only with `SOLANA_NETWORK=devnet` and `ENABLE_DEVNET_MINTING=true`. Mainnet RPCs and mainnet mode are rejected. Devnet test funds are required in the signing wallet. The test quote mint must be verified separately; an arbitrary six-decimal mint is not proof of Circle issuance.
+The two-instruction setup creates the platform and assigns CPMM creator rights to the fee wallet. Proposed migrated LP policy is 100% locked, 0% burned, with the Fee Key assigned to the owner. No vesting or token transfer-fee authority is configured. The UI discloses the network, recipients, fee rates, collection share, LP rights and real SOL cost before wallet signing.
 
-Tests cover fee-unit mismatch, unexpected fee recipient/quote mint, restricted config rejection, altered transaction rejection, unsigned transactions, and fail-closed configuration. No funded devnet end-to-end transaction has been run. The current deployed settings leave this feature disabled.
+Preparation validates a successful simulation and its resulting account and checks payer debit against rent plus network fee. Relay accepts only the exact reviewed message, a current blockhash and valid wallet signatures. No server-side wallet key exists. Creating this account does not create a pool, launch a token or enable trading.
 
-Still required: signed platform setup, independently verified USDC global config, devnet integration tests, immutable metadata hosting/lock policy, mainnet transaction lifecycle, swap builder/indexer and live trade candles, per-token receipt-backed fee collection/splitting, buy/pair/add executor and LP lock verification. LaunchLab curve platform fees do not automatically enforce a 40/60 split or preserve 1.25% after graduation.
+At the last check the owner had 0 mainnet SOL and the platform account did not exist. Account rent was 0.00544576 SOL, excluding network fee. Mainnet preparation correctly stopped for insufficient funds. No funded mainnet simulation, signature or broadcast has been performed. Devnet simulation results do not establish mainnet execution success.
 
-## Configured platform identity
+## Token mint builder (disabled)
 
-Platform owner and fee-collection wallet: `85a8ERAhk1ZPYyGwj4zkjVKZdfqaEUcSpTt9GCz5xA7j`. The devnet platform PDA derived from that owner is `Cg4vFQ1kyiNzCXWiiydiXJRB6B4GSnDEhoHVFkrtiiTV`. These public identifiers are maintained in the Render Blueprint. A derived address is not evidence that the platform account has been created. The backend verifies its owner-derived PDA before accepting configuration. This does not grant ledger-operator privileges or authorize any wallet transaction.
+The network-aware builder uses the selected LaunchLab program and official quote mint. It validates platform fee/recipient, global quote configuration and SPL mint state; it prepares one V0 create-only transaction with 80% of draft supply for curve sale, no vesting, no initial buy, and an explicitly configured USDC fundraising target. The mint keypair is ephemeral; only its partial transaction signature is persisted. The wallet signs the exact message, relay simulates signatures before broadcasting, and confirmation checks canonical pool identity.
 
-## Owner setup and Circle-only testing
+`ENABLE_TOKEN_MINTING=false` remains explicit in the Blueprint. `LAUNCH_RAISE_USDC_UNITS` is intentionally unset pending launch-parameter selection. An old devnet flag cannot activate mainnet minting. Draft profiles remain registry drafts; live indexer integration is absent. Expired launch preparations require reconciliation and are not silently replaced. Platform creation alone is insufficient to turn this into a functioning launchpad.
 
-The user selected **Circle USDC only**, including on devnet. The canonical test mint is `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU` (Circle official address registry). The backend now rejects a substitute quote mint. On 2026-11-06, RPC enumeration of the five deployed LaunchLab GlobalConfig accounts found no config for this mint. Do not enable minting with Raydium’s separately named test USDC or wrapped SOL. Global configs require protocol-admin management.
+Remaining: funded wallet-reviewed platform creation, launch economics and lifecycle reconciliation, immutable metadata policy, mint execution verification, swaps, live candles, terminal compatibility tests, verified fee receipts, split accounting against net receipts, buy/pair/add execution and LP lock verification.
 
-`#setup` is an owner setup page. Connect the configured wallet on `#create`, then follow **Platform setup**. Public GET `/api/platform` checks devnet genesis, owner balance, canonical platform PDA, configured CPMM account and compatible Circle-USDC global configs. Owner-authenticated POST `/api/platform/prepare`, `/submit` and `/confirm` prepare, relay and verify platform creation. Existing session, Origin and CSRF controls apply.
-
-The setup transaction atomically creates the platform (12500 / 1000000 platform fee, zero extra curve creator fee, no vesting or transfer-fee authority) and assigns the post-graduation CPMM creator to the fee wallet. Proposed migrated LP policy is 100% locked, 0% burned; the platform owner receives the Fee Key. Devnet CPMM config `7K5fZrc5LPZjDSvQZ1LmWJJoas86PX55YWBDuFqsP4qN` was verified on-chain at 2500 trade fee and 12500 creator fee, with pool creation enabled. This does not enforce 40/60 splitting or reinvestment and is not proof of any terminal’s support.
-
-Preparation simulates without broadcasting, validates the simulated resulting account, and compares payer debit with account rent plus quoted network fee. The browser presents recipients, rates, LP rights and estimated devnet cost before wallet signing. Relay accepts only the exact prepared message and a current blockhash; newly prepared reviews supersede prior unsigned ones. Finalization checks the on-chain platform settings. Preparing a platform does not enable token launches, swaps, live candles or automation.
-
-A funded-wallet unsigned simulation succeeded on 2026-11-06: 0.00544576 SOL rent + 0.000005 SOL network fee = 0.00545076 devnet SOL. No wallet signature or broadcast was performed by the agent. Preparations are rebuilt at review time; costs are re-estimated then.
-
-References: https://developers.circle.com/stablecoins/usdc-contract-addresses and Raydium's published LaunchLab GlobalConfig/PlatformConfig documentation and SDK 0.2.84-alpha.
+References: https://developers.circle.com/stablecoins/usdc-contract-addresses and https://github.com/raydium-io/raydium-docs-v1/tree/main/products/launchlab. SDK pinned to 0.2.84-alpha.

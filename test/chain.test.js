@@ -26,10 +26,10 @@ test('relay rejects changed instructions, mismatched payer, and missing signatur
  assert.throws(()=>validateRelay(serialize(),'changed',payer.publicKey.toBase58()));
  assert.throws(()=>validateRelay(serialize(),expectedMessage,recipient.toBase58()));
 });
-test('chain status fails closed without configuration and mainnet cannot be enabled',async()=>{
+test('chain status fails closed without configuration and a devnet flag cannot enable mainnet',async()=>{
  const store=createStore(':memory:');try{
  const chain=createChain(store,{}),status=await chain.status();assert.equal(status.mintPreparationReady,false);assert.equal(status.platformFeeConnected,false);assert.equal(status.automationEnabled,false);assert.ok(status.missing.includes('RAYDIUM_PLATFORM_ID'));
  await assert.rejects(chain.prepare({},'https://example.com'),/not enabled/);
- const mainnet=createChain(store,{SOLANA_NETWORK:'mainnet',ENABLE_DEVNET_MINTING:'true'});assert.match((await mainnet.status()).issue,/Mainnet execution is not enabled/);
+ const mainnet=createChain(store,{SOLANA_NETWORK:'mainnet',ENABLE_DEVNET_MINTING:'true'});assert.equal((await mainnet.status()).mintPreparationReady,false);await assert.rejects(mainnet.prepare({},'https://example.com'),/not enabled/);
  }finally{store.close()}
 });

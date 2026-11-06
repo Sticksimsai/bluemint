@@ -19,7 +19,7 @@ services:
       - key: DATA_DIR
         value: /var/data
       - key: SOLANA_NETWORK
-        value: devnet
+        value: mainnet
       - key: ADMIN_WALLETS
         value: ""
       - key: PLATFORM_OWNER_WALLET
@@ -27,8 +27,14 @@ services:
       - key: PLATFORM_FEE_WALLET
         value: "85a8ERAhk1ZPYyGwj4zkjVKZdfqaEUcSpTt9GCz5xA7j"
       - key: RAYDIUM_PLATFORM_ID
-        value: "Cg4vFQ1kyiNzCXWiiydiXJRB6B4GSnDEhoHVFkrtiiTV"
+        value: "3bucQpVsuemJMHNcMCdSGDzvnorZXYowNFQbBch6gLhz"
       - key: SOLANA_RPC_URL
-        value: "https://api.devnet.solana.com"
-      - key: DEVNET_USDC_MINT
-        value: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
+        value: "https://api.mainnet-beta.solana.com"
+      - key: USDC_QUOTE_MINT
+        value: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+      - key: RAYDIUM_GLOBAL_CONFIG_ID
+        value: "8gj14w8vkNZjJTPak6e96Uf1sY438WKheH4s5dHyxiRw"
+      - key: ENABLE_TOKEN_MINTING
+        value: "false"
+      - key: ENABLE_DEVNET_MINTING
+        value: "false"
