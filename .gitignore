@@ -6,3 +6,7 @@ data/
 *.sqlite*
 *.tar.gz
 .openai/
+
+research/
+
+dist/wallet-runtime.js

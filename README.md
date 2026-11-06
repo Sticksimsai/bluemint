@@ -1,12 +1,13 @@
 # BlueMint
 
-USDC-first launchpad frontend and persistent backend preview. **No on-chain minting, swaps, fee collection or liquidity execution is deployed.**
+USDC-first launchpad frontend and persistent backend preview. **Mainnet minting, swaps, fee collection and liquidity execution are not deployed. A disabled-by-default devnet mint preparation flow is implemented.**
 
 ## Run
 Requires Node 24.15+ (24.22.1 pinned for deployment).
 
 ```sh
 npm ci
+npm run build
 npm test
 npm start
 ```
@@ -47,3 +48,21 @@ The reserved SOLANA_RPC_URL, RAYDIUM_PLATFORM_ID and TREASURY_WALLET settings do
 
 ## Validation
 npm test covers fee conservation, liquidity budget constraints, input rejection, database persistence/immutability, idempotency, wallet signatures, nonce replay, origin/CSRF checks, ownership and disabled financial execution. npm run check validates server/bridge syntax. Browser visual QA remains unverified. Frontend design history is in FRONTEND-HISTORY.md.
+
+## Devnet mint integration (disabled by default)
+
+The launch page now owns wallet connection; the header is a pixel-style Mint a token action. Decorative northeast-arrow glyphs were removed.
+
+`GET /api/chain/status` checks the configured RPC genesis, LaunchLab program ownership and account discriminators, platform fee (12500 / 1000000), zero creator fee, expected fee-collection wallet, and quote mint. It rejects unsupported restricted-rule platforms. This checks configured accounts; it does not deploy a fee splitter.
+
+Owner-authenticated POST `/api/launches/:id/prepare` constructs and simulates a single SDK V0 create-only transaction. It creates the constant-product curve with 80% of draft supply for curve sale, no vesting, and an explicitly configured USDC fundraising target. It makes **no initial buy or seed deposit**. Multi-transaction results are rejected. The mint keypair exists only during preparation; no private keys are stored. The persisted partial transaction contains a mint signature, not its private key.
+
+The browser asks the wallet to review/sign; POST `.../submit` rejects any change to the prepared message or payer, verifies signatures through RPC simulation, and broadcasts the signed transaction. POST `.../confirm` verifies the finalized canonical pool identity. GET `.../chain` reports preparation state. Draft profiles remain drafts in discovery until a full live-market/indexer integration exists; confirmed devnet state is shown separately.
+
+Preparation is idempotent per launch and expires after 60 seconds. Expired or uncertain preparations deliberately block replacement to prevent duplicate mints; reconciliation/recovery tooling is not implemented yet. Chain confirmation can recover a submitted transaction whose HTTP response was lost by checking the canonical pool. This is not production-ready lifecycle management.
+
+Required operator settings are in `.env.example`: HTTPS RPC, platform ID, global config ID, fee wallet, devnet USDC mint, and fundraising target in atomic units. Enable only with `SOLANA_NETWORK=devnet` and `ENABLE_DEVNET_MINTING=true`. Mainnet RPCs and mainnet mode are rejected. Devnet test funds are required in the signing wallet. The test quote mint must be verified separately; an arbitrary six-decimal mint is not proof of Circle issuance.
+
+Tests cover fee-unit mismatch, unexpected fee recipient/quote mint, restricted config rejection, altered transaction rejection, unsigned transactions, and fail-closed configuration. No funded devnet end-to-end transaction has been run. The current deployed settings leave this feature disabled.
+
+Still required: signed platform setup, independently verified USDC global config, devnet integration tests, immutable metadata hosting/lock policy, mainnet transaction lifecycle, swap builder/indexer and live trade candles, per-token receipt-backed fee collection/splitting, buy/pair/add executor and LP lock verification. LaunchLab curve platform fees do not automatically enforce a 40/60 split or preserve 1.25% after graduation.

@@ -9,5 +9,6 @@ jobs:
         with:
           node-version: '24.22.1'
       - run: npm ci
+      - run: npm run build
       - run: npm test
       - run: npm run check
