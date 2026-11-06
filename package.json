@@ -10,7 +10,7 @@
     "start": "node server/index.js",
     "test": "node --test test/*.test.js",
     "check": "node --check server/index.js && node --check server/domain.js && node --check dist/backend.js",
-    "build": "esbuild client/wallet.js --bundle --format=iife --global-name=BlueMintWallet --outfile=dist/wallet-runtime.js --minify",
+    "build": "node scripts/fetch-hero-media.mjs && esbuild client/wallet.js --bundle --format=iife --global-name=BlueMintWallet --outfile=dist/wallet-runtime.js --minify",
     "keeper": "node server/keeper.js",
     "test:contract": "cargo test --locked -p bluemint-vault",
     "build:contract": "cargo-build-sbf --tools-version v1.58 --manifest-path programs/bluemint-vault/Cargo.toml --sbf-out-dir deploy",

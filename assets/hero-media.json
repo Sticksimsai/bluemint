@@ -1,0 +1,14 @@
+{
+  "provider": "Higgsfield",
+  "model": "seedance_2_5",
+  "jobId": "ec196f03-6096-43a0-a60e-b65d3fac06e7",
+  "requestedDurationSeconds": 18,
+  "assets": [
+    {
+      "filename": "mint-runthrough.mp4",
+      "url": "https://d8j0ntlcm91z4.cloudfront.net/user_38mxUVWFOcVXT8mCZ9tfkU8JtiI/hf_20261106_154005_ec196f03-6096-43a0-a60e-b65d3fac06e7.mp4",
+      "bytes": 2875077,
+      "sha256": "138d254aad3cf9e7b55ed4b2ceeca5fd440c422bf56e8d3c0746ebeda28ed5bf"
+    }
+  ]
+}

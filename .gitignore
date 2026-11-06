@@ -15,3 +15,5 @@ dist/wallet-runtime.js
 
 /deploy/*.so
 /deploy/*.json
+
+/dist/assets/mint-runthrough.mp4
