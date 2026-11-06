@@ -49,12 +49,12 @@ body{font-size:16px}button,input,textarea,select,kbd{font-family:'Pixelify Sans'
 
 /* One square pixel control system across static and dynamically rendered pages. */
 body button,body a.primary,body a.pixel-mint-button,body a.outline-btn,body a.text-btn,body .nav-link{border-radius:0!important;clip-path:none; font-family:'Pixelify Sans',sans-serif;}
-body button:not(.feature-card):not(.engine-card),body a.primary,body a.pixel-mint-button,body a.outline-btn,body a.text-btn,body .nav-link{--button-face:#14233b;--button-edge:#233f68;background:var(--button-face);border:1px solid #35527b;box-shadow:4px 4px 0 var(--button-edge);color:#cbdfff;min-height:34px;padding:9px 13px;display:inline-flex;align-items:center;justify-content:center;gap:7px;line-height:1.3;transition:background .12s,box-shadow .12s,translate .12s;text-decoration:none;}
+body button:where(:not(.feature-card):not(.engine-card)),body a.primary,body a.pixel-mint-button,body a.outline-btn,body a.text-btn,body .nav-link{--button-face:#14233b;--button-edge:#233f68;background:var(--button-face);border:1px solid #35527b;box-shadow:4px 4px 0 var(--button-edge);color:#cbdfff;min-height:34px;padding:9px 13px;display:inline-flex;align-items:center;justify-content:center;gap:7px;line-height:1.3;transition:background .12s,box-shadow .12s,translate .12s;text-decoration:none;}
 body button.primary,body button.pixel-mint-button,body a.primary,body a.pixel-mint-button,body button.active,body .nav-link[aria-current=page]{--button-face:#3678ff;--button-edge:#173e89;border-color:#3678ff;color:#fff;font-weight:600;}
 body button.primary,body button.pixel-mint-button,body a.primary,body a.pixel-mint-button{padding:13px 20px;min-height:44px;}
-body button:not(.feature-card):not(.engine-card):hover,body a.primary:hover,body a.pixel-mint-button:hover,body a.text-btn:hover,body a.outline-btn:hover,body .nav-link:hover{background:#245298;transform:none;}
+body button:where(:not(.feature-card):not(.engine-card)):hover,body a.primary:hover,body a.pixel-mint-button:hover,body a.text-btn:hover,body a.outline-btn:hover,body .nav-link:hover{background:#245298;transform:none;}
 body button.primary:hover,body button.pixel-mint-button:hover,body a.primary:hover,body a.pixel-mint-button:hover{background:#528bff;}
-body button:not(.feature-card):not(.engine-card):active,body a.primary:active,body a.pixel-mint-button:active,body a.text-btn:active,body .nav-link:active{translate:2px 2px;box-shadow:2px 2px 0 var(--button-edge);}
+body button:where(:not(.feature-card):not(.engine-card)):active,body a.primary:active,body a.pixel-mint-button:active,body a.text-btn:active,body .nav-link:active{translate:2px 2px;box-shadow:2px 2px 0 var(--button-edge);}
 body button:focus-visible,body a.primary:focus-visible,body a.pixel-mint-button:focus-visible,body a.text-btn:focus-visible,body .nav-link:focus-visible{outline:2px solid #fff;outline-offset:6px;}
 body button:disabled{opacity:.45;cursor:not-allowed;translate:none;}
 body button.feature-card,body button.engine-card{border-radius:0;box-shadow:4px 4px 0 #182438;}
