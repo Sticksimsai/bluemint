@@ -1,0 +1,26 @@
+(()=>{
+ const hero=document.querySelector('.hero');if(!hero)return;
+ const card=document.createElement('section');card.className='conveyor-card';card.setAttribute('aria-labelledby','conveyorTitle');
+ card.innerHTML=`<div class="conveyor-heading"><div><span class="eyebrow blue">THE PRODUCTION LINE</span><h2 id="conveyorTitle">Fresh off the mint.</h2><p>Confirmed BlueMint tokens, rolling out as pixel coins.</p></div><span class="conveyor-status" id="conveyorStatus" role="status">CONNECTING</span></div><div class="conveyor-scene"><div class="conveyor-factory" aria-hidden="true"><span>THE<br>MINT</span><i></i></div><div class="conveyor-items" id="conveyorItems"></div><div class="conveyor-belt" aria-hidden="true"><div class="conveyor-treads"></div><div class="conveyor-rollers"></div></div><div class="conveyor-idle" id="conveyorIdle">Awaiting the first confirmed mint.<small>The belt is running. No live coins yet.</small></div></div><div class="conveyor-footer"><span id="conveyorCount">— CONFIRMED MINTS</span><span id="conveyorLatest">Only finalized mints enter this feed.</span><button type="button" id="previewConveyor">Preview a coin</button></div><p class="conveyor-note">Preview coins are illustrative and never counted. Real coins open their token page.</p>`;
+ hero.after(card);
+ const lane=card.querySelector('#conveyorItems'),status=card.querySelector('#conveyorStatus'),idle=card.querySelector('#conveyorIdle'),latest=card.querySelector('#conveyorLatest'),preview=card.querySelector('#previewConveyor'),count=card.querySelector('#conveyorCount');
+ const reduced=matchMedia('(prefers-reduced-motion: reduce)');let cursor=0,total=0,queue=[],busy=false,visible=true,previewed=false,started=false;
+ function state(){card.classList.toggle('conveyor-sleep',!visible||document.hidden);}
+ function coin(item,isPreview=false){
+  const link=document.createElement(isPreview?'div':'a');link.className='conveyor-coin'+(isPreview?' is-preview':'');if(!isPreview)link.href='#token/'+item.id;
+  link.setAttribute('aria-label',isPreview?'Illustrative preview coin':`${item.name}, ${item.ticker}. Open confirmed token`);
+  const face=document.createElement('div');face.className='coin-face';const canvas=document.createElement('canvas');canvas.width=24;canvas.height=24;canvas.setAttribute('aria-hidden','true');face.append(canvas);
+  const label=document.createElement('span');label.className='coin-ticker';label.textContent=isPreview?'PREVIEW':item.ticker;link.append(face,label);lane.append(link);
+  const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.fillStyle='#153e82';ctx.fillRect(0,0,24,24);ctx.fillStyle='white';ctx.font='bold 14px monospace';ctx.textAlign='center';ctx.fillText(item.ticker.slice(0,1),12,17);
+  const img=new Image();img.onload=()=>{const size=Math.min(img.naturalWidth,img.naturalHeight);ctx.drawImage(img,(img.naturalWidth-size)/2,(img.naturalHeight-size)/2,size,size,0,0,24,24)};img.src=isPreview?'assets/usdc-pixel.png':item.image;
+  link.addEventListener('animationend',()=>link.remove(),{once:true});
+  if(reduced.matches){while(lane.children.length>5)lane.firstElementChild.remove();}
+  idle.hidden=true;if(!isPreview){latest.textContent=`LATEST: ${item.ticker} · CONFIRMED`;latest.title=item.mint;}
+ }
+ function tick(){if(document.hidden||!visible)return;if(queue.length&&(reduced.matches||lane.children.length<6)){coin(queue.shift());}else if(!lane.children.length){idle.hidden=false;idle.firstChild.textContent=total?'All caught up. Waiting for the next mint.':'Awaiting the first confirmed mint.';idle.querySelector('small').textContent=total?'New confirmed mints join automatically.':'The belt is running. No live coins yet.';}}
+ async function refresh(){if(busy||document.hidden)return;busy=true;try{const res=await fetch('/api/mints?limit=100&after='+cursor,{cache:'no-store'});if(!res.ok)throw Error('Feed unavailable');const data=await res.json();if(!Array.isArray(data.items)||!Number.isSafeInteger(data.cursor))throw Error('Invalid feed');const items=data.items.filter(t=>Number.isSafeInteger(t.seq)&&t.seq>cursor&&/^\d+$/.test(t.id)&&typeof t.ticker==='string'&&t.image===`/api/launches/${t.id}/image`);queue.push(...items);if(queue.length>100)queue=queue.slice(-100);cursor=Math.max(cursor,data.cursor);total=data.total;count.textContent=`${total} CONFIRMED MINT${total===1?'':'S'}`;status.textContent=total?'CONNECTED · CONFIRMED FEED':'CONNECTED · AWAITING MINTS';status.classList.remove('feed-error');if(!started){started=true;if(items.length)queue=items.slice(-6);else if(!previewed){previewed=true;coin({ticker:'USDC'},true);}}tick();}catch{status.textContent='FEED UNAVAILABLE · RETRYING';status.classList.add('feed-error');}finally{busy=false}}
+ preview.onclick=()=>{if(lane.querySelector('.is-preview'))return;coin({ticker:'USDC'},true);previewed=true;};
+ new IntersectionObserver(entries=>{visible=entries[0].isIntersecting;state();},{threshold:.05}).observe(card);
+ document.addEventListener('visibilitychange',()=>{state();if(!document.hidden)refresh();});window.addEventListener('bluemint:refresh',refresh);reduced.addEventListener('change',()=>{lane.replaceChildren();tick();});
+ setInterval(tick,2800);setInterval(refresh,15000);refresh();
+})();
