@@ -147,3 +147,5 @@ body .empty{font:14px/1.6 'Pixelify Sans';padding:28px 12px}
  body .docs-shell{padding:0 16px}
 }
 @media(prefers-reduced-motion:reduce){body *{scroll-behavior:auto!important;transition:none!important}}
+
+body .notice[hidden]{display:none}
