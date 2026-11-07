@@ -52,7 +52,7 @@ export function createPlatformFees(store,env,connection){
   const sim=await rpc.simulateTransaction(tx,{sigVerify:false,commitment:'confirmed'});
   assert(!sim.value.err,'Claim simulation failed. Check the fee wallet’s SOL balance.',422);
   const id=randomBytes(20).toString('hex'),wire=Buffer.from(tx.serialize()).toString('base64');
-  db.prepare('INSERT INTO platform_fee_claims VALUES(?,?,?,?,?,?,?,?)').run(id,Buffer.from(tx.message.serialize()).toString('base64'),wire,null,block.lastValidBlockHeight,'prepared',Date.now());
+  db.prepare('INSERT INTO platform_fee_claims VALUES(?,?,?,?,?,?,?)').run(id,Buffer.from(tx.message.serialize()).toString('base64'),wire,null,block.lastValidBlockHeight,'prepared',Date.now());
   return {id,transaction:wire,...state};
  },
  async submit(wallet,id,wire){
