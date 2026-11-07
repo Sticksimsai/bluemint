@@ -18,7 +18,7 @@ export function validateClaimRelay(wire,expectedBase64,wallet){
  const keys=m=>m.staticAccountKeys.map((k,i)=>({key:k.toString(),signer:m.isAccountSigner(i),writable:m.isAccountWritable(i)})).filter(k=>k.key!==budget).sort((a,b)=>a.key.localeCompare(b.key));
  assert(JSON.stringify(keys(message))===JSON.stringify(keys(expected)),'Wallet changed claim accounts or permissions');
  function core(m,checkBudget){
-  let limit=200000,price=0n;const seen=new Set(),instructions=[];
+  let limit=1400000,price=0n;const seen=new Set(),instructions=[];
   for(const ix of m.compiledInstructions){
    const program=m.staticAccountKeys[ix.programIdIndex].toString(),data=Buffer.from(ix.data);
    if(program===budget){
