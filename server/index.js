@@ -1,3 +1,4 @@
+import {createPlatformFees} from './platform-fees.js';
 import { startBuybacks } from './launchlab-buybacks.js';
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
@@ -17,6 +18,7 @@ const store=options.store||createStore(process.env.DATA_DIR||'./data');const pub
 const mintFeed=createMintFeed(store);
 const chainEnv=options.chainEnv||process.env;const lab=chainEnv.LAUNCH_MODE==='launchlab';const chain=lab?createLaunchLab(store,{...chainEnv,ENABLE_TOKEN_MINTING:chainEnv.ENABLE_LAUNCHLAB_MINTING}):createChain(store,chainEnv);const markets=createMarkets(store,chainEnv);
 const stopBuybacks=startBuybacks(store,chainEnv);
+const fees=createPlatformFees(store,chainEnv);
 const send=(res,status,body)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(body))};
 const publish=type=>{for(const res of clients)res.write(`event: refresh\ndata: ${JSON.stringify({type})}\n\n`)};
 function session(req){const raw=req.headers.cookie?.match(/(?:^|;\s*)bm_session=([a-f0-9]{64})(?:;|$)/)?.[1];return raw?store.db.prepare('SELECT * FROM sessions WHERE hash=? AND expires>?').get(hash(raw),Date.now()):null}
@@ -26,6 +28,9 @@ const server=createServer(async(req,res)=>{res.setHeader('X-Content-Type-Options
 if(path==='/api/health'&&req.method==='GET'){store.db.prepare('SELECT 1').get();return send(res,200,{ok:true,storage:'sqlite',network:process.env.SOLANA_NETWORK||'devnet',onchainExecution:false})}
 if(path.startsWith('/api/platform'))throw new AppError(410,'LaunchLab setup retired. BlueMint uses direct Raydium CPMM pools with its vault program.');
 
+if(path==='/api/platform-fees'&&req.method==='GET')return send(res,200,await fees.get());
+if(path==='/api/platform-fees/prepare'&&req.method==='POST')return send(res,200,await fees.prepare(user.wallet));
+if(path==='/api/platform-fees/submit'&&req.method==='POST'){const x=await body(req);return send(res,200,await fees.submit(user.wallet,x.id,x.transaction))}
 if(path==='/api/chain/status'&&req.method==='GET')return send(res,200,await chain.status());
 if(path==='/api/config'&&req.method==='GET'&&lab)return send(res,200,{apiVersion:1,mode:'launchlab',raiseUnits:chainEnv.LAUNCH_RAISE_USDC_UNITS,network:chainEnv.SOLANA_NETWORK,walletAuthentication:true,persistentProfiles:true,autoBuybacks:!!stopBuybacks,keeper:stopBuybacks?.status||null,publicUrl:publicUrl.origin});
 if(path==='/api/config'&&req.method==='GET')return send(res,200,{apiVersion:1,platformOwner:chainEnv.PLATFORM_OWNER_WALLET||null,mode:lab?'launchlab':'direct_cpmm_vault',raiseUnits:lab?chainEnv.LAUNCH_RAISE_USDC_UNITS:null,policy:POLICY,walletAuthentication:true,persistentProfiles:true,liveTrading:false,onchainExecution:false,network:process.env.SOLANA_NETWORK||'devnet',marketData:'not_connected',missing:['Qualified and deployed BlueMint vault program','Mainnet funding and wallet signatures','Keeper fee payer configuration','Live market indexer'],publicUrl:publicUrl.origin});
@@ -60,7 +65,7 @@ if(req.method==='GET'||req.method==='HEAD'){
   if(legacy[path]||/^\/(?:docs|mint|launch|watchlist|setup|token)(?:\/[a-zA-Z0-9]+)?\/$/.test(path)){res.writeHead(308,{Location:(legacy[path]||path.replace(/\/+$/,''))+url.search});return res.end()}
 }
 assert(req.method==='GET'||req.method==='HEAD','Method not allowed',405);const docsRoute=/^\/docs(?:\/(?:overview|launches|pairings|fees|treasury|liquidity|markets|status))?$/.test(path);
-const appRoute=['/','/mint','/launch','/setup','/watchlist'].includes(path)||/^\/token\/(?:\d{1,16}|[1-9A-HJ-NP-Za-km-z]{32,44})$/.test(path);
+const appRoute=['/','/mint','/launch','/setup','/watchlist','/fees'].includes(path)||/^\/token\/(?:\d{1,16}|[1-9A-HJ-NP-Za-km-z]{32,44})$/.test(path);
 const requested=decodeURIComponent(docsRoute?'/docs.html':appRoute?'/index.html':path);assert(!requested.split('/').some(s=>s.startsWith('.')),'Not found',404);const file=resolve(root,'.'+requested);assert(file.startsWith(root+sep),'Not found',404);let info;try{info=await stat(file)}catch{throw new AppError(404,'Not found')}assert(info.isFile(),'Not found',404);const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.gif':'image/gif','.jpg':'image/jpeg','.mp4':'video/mp4','.ttf':'font/ttf'}[extname(file)]||'application/octet-stream';const assetHeaders={'Content-Type':mime,'Cache-Control':extname(file)==='.html'?'no-cache':'public,max-age=300','Accept-Ranges':'bytes'};if(req.headers.range){const match=/^bytes=(\d+)-(\d*)$/.exec(req.headers.range);const start=match?Number(match[1]):-1,end=match&&match[2]?Math.min(Number(match[2]),info.size-1):info.size-1;if(!match||!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||start>=info.size||end<start){res.writeHead(416,{...assetHeaders,'Content-Range':`bytes */${info.size}`});return res.end()}res.writeHead(206,{...assetHeaders,'Content-Range':`bytes ${start}-${end}/${info.size}`,'Content-Length':end-start+1});if(req.method==='HEAD')return res.end();createReadStream(file,{start,end}).on('error',()=>res.destroy()).pipe(res);return}res.writeHead(200,{...assetHeaders,'Content-Length':info.size});if(req.method==='HEAD')return res.end();createReadStream(file).on('error',()=>res.destroy()).pipe(res);
 }catch(error){if(!res.headersSent)send(res,error.status||500,{error:error.status?error.message:'Internal server error'});else res.end();if(!error.status)console.error('request_failed',error.name)}});
 let sampleCursor='',sampling=false;

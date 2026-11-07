@@ -6,6 +6,7 @@ function route(){
  const path=location.pathname;
  if(path==='/setup'){if(typeof showPlatformSetup==='function')showPlatformSetup();return}
  if(path==='/launch'){showCreate();return}
+ if(path==='/fees'){showFees();return}
  if(path==='/mint'){showMint();return}
  const match=path.match(/^\/token\/([a-zA-Z0-9]+)$/);
  if(!match){
