@@ -54,9 +54,9 @@ export function sharedDeposit(tx,curve){
       const parent=stack[depth-2];
       if(ix.programId.equals(TOKEN_PROGRAM_ID)&&['transfer','transferChecked'].includes(ix.parsed?.type)&&ix.parsed.info.destination===SHARED.toBase58()){
         assert(parent?.programId.equals(PROGRAM)&&swapTags.has(tag(parent)),'Unattributed shared-vault transfer');
-        assert(parent.accounts.some(a=>a.equals(PLATFORM)),'Wrong swap platform');
+        assert(parent.accounts[3]?.equals(PLATFORM) && parent.accounts[10]?.equals(USDC),'Wrong swap platform or quote');
         const gross=units(ix.parsed.info);total+=gross;
-        if(parent.accounts.some(a=>a.equals(curve)))attributed+=gross;
+        if(parent.accounts[4]?.equals(curve))attributed+=gross;
       }
       stack.push(ix);
     }
@@ -73,8 +73,8 @@ export async function finalizedAllocation(rpc,mint,signature){
     ix.programId.equals(PROGRAM)&&[claimTag(false),claimTag(true)].includes(tag(ix)));
   assert.equal(claims.length,1,'Expected one top-level Raydium platform claim');
   const {ix,index}=claims[0],shared=tag(ix)===claimTag(true),source=shared?SHARED:curveVault;
-  assert(ix.accounts[0].equals(TREASURY)&&ix.accounts.some(a=>a.equals(PLATFORM)),'Unexpected claim authority or platform');
-  if(!shared)assert(ix.accounts.some(a=>a.equals(curve)),'Claim belongs to another mint');
+  assert(ix.accounts[0].equals(TREASURY)&&ix.accounts[shared?1:3]?.equals(PLATFORM),'Unexpected claim authority or platform');
+  if(!shared)assert(ix.accounts[2]?.equals(curve),'Claim belongs to another mint');
   const credits=transfers(tx,index).filter(t=>t.source===source.toBase58()&&t.destination===destination.toBase58());
   assert.equal(credits.length,1,'Missing exact USDC claim transfer');
   const received=units(credits[0]);
