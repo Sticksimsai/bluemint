@@ -39,9 +39,11 @@ services:
       - key: ENABLE_TOKEN_MINTING
         value: "false"
       - key: LAUNCH_MODE
-        value: launchlab
+        value: pump
       - key: LAUNCH_RAISE_USDC_UNITS
         value: "10000000000"
+      - key: ENABLE_PUMP_MINTING
+        value: "true"
       - key: ENABLE_LAUNCHLAB_MINTING
         value: "true"
       - key: ENABLE_DEVNET_MINTING
