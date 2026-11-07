@@ -11,17 +11,17 @@ export const POOL_FEE=new PublicKey('DNXgeM9EiiaAbaWvwjHj9fQQLAX5ZsfHyvmYUNRAdNC
 export const discriminator=name=>createHash('sha256').update(name).digest().subarray(0,8);
 const derive=(program,...seeds)=>PublicKey.findProgramAddressSync(seeds.map(s=>typeof s==='string'?Buffer.from(s):s.toBuffer()),program)[0];
 export const ata=(mint,owner)=>getAssociatedTokenAddressSync(mint,owner,true);
-export function vaultAddresses(mint,owner){mint=new PublicKey(mint);owner=new PublicKey(owner);
+export function vaultAddresses(mint,owner,config=CP_CONFIG){mint=new PublicKey(mint);owner=new PublicKey(owner);
  const authority=derive(VAULT_PROGRAM,'authority',mint),launch=derive(VAULT_PROGRAM,'launch',mint);
  const [mint0,mint1]=Buffer.compare(mint.toBuffer(),USDC.toBuffer())<0?[mint,USDC]:[USDC,mint];
- const pool=derive(CPMM_PROGRAM,'pool',CP_CONFIG,mint0,mint1),lpMint=derive(CPMM_PROGRAM,'pool_lp_mint',pool);
+ const pool=derive(CPMM_PROGRAM,'pool',config,mint0,mint1),lpMint=derive(CPMM_PROGRAM,'pool_lp_mint',pool);
  const cpAuthority=derive(CPMM_PROGRAM,'vault_and_lp_mint_auth_seed');
  const vault0=derive(CPMM_PROGRAM,'pool_vault',pool,mint0),vault1=derive(CPMM_PROGRAM,'pool_vault',pool,mint1);
- const observation=derive(CPMM_PROGRAM,'observation',pool),feeShare=derive(CPMM_PROGRAM,'creator_fee_share',authority,CP_CONFIG);
- return {mint,owner,authority,launch,mint0,mint1,pool,lpMint,cpAuthority,vault0,vault1,observation,feeShare,ownerTokens:ata(mint,owner),ownerQuote:ata(USDC,owner),tokenVault:ata(mint,authority),quoteVault:ata(USDC,authority),lpVault:ata(lpMint,authority),treasuryQuote:ata(USDC,TREASURY),quoteFirst:mint0.equals(USDC)};
+ const observation=derive(CPMM_PROGRAM,'observation',pool),feeShare=derive(CPMM_PROGRAM,'creator_fee_share',authority,config);
+ return {config,mint,owner,authority,launch,mint0,mint1,pool,lpMint,cpAuthority,vault0,vault1,observation,feeShare,ownerTokens:ata(mint,owner),ownerQuote:ata(USDC,owner),tokenVault:ata(mint,authority),quoteVault:ata(USDC,authority),lpVault:ata(lpMint,authority),treasuryQuote:ata(USDC,TREASURY),quoteFirst:mint0.equals(USDC)};
 }
 const meta=(pubkey,isWritable=false,isSigner=false)=>({pubkey,isWritable,isSigner});
-function remaining(a){return [meta(CP_CONFIG),meta(a.cpAuthority),meta(a.pool,true),meta(a.mint0),meta(a.mint1),meta(a.lpMint,true),meta(a.vault0,true),meta(a.vault1,true),meta(a.observation,true),meta(POOL_FEE,true),meta(TOKEN_2022_PROGRAM_ID),meta(a.feeShare)];}
+function remaining(a){return [meta(a.config),meta(a.cpAuthority),meta(a.pool,true),meta(a.mint0),meta(a.mint1),meta(a.lpMint,true),meta(a.vault0,true),meta(a.vault1,true),meta(a.observation,true),meta(POOL_FEE,true),meta(TOKEN_2022_PROGRAM_ID),meta(a.feeShare)];}
 export function vaultInstruction(action,a,{payer=a.owner,budget=0n,solFunding=0n}={}){
  assert(['create_launch','finish_buy','refund_expired_buy','collect_fees','reinvest'].includes(action),'Unknown vault instruction');
  const create=action==='create_launch';

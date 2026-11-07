@@ -18,11 +18,77 @@ const CP_CONFIG: Pubkey = pubkey!("627Jx6eN61TrdgMFSQt1QxvAmYWHXmzVA8M9FsKFtdkX"
 const POOL_FEE: Pubkey = pubkey!("DNXgeM9EiiaAbaWvwjHj9fQQLAX5ZsfHyvmYUNRAdNC8");
 const TOKEN_2022: Pubkey = pubkey!("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
 
+const LAUNCHLAB: Pubkey = pubkey!("LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj");
+const PLATFORM: Pubkey = pubkey!("GobSXmdvJMVk67KVwkyqGpoMEq6b6SoNrd7NwNW7iwM8");
+const CURVE_CONFIG: Pubkey = pubkey!("8gj14w8vkNZjJTPak6e96Uf1sY438WKheH4s5dHyxiRw");
+
 // No withdrawal, arbitrary CPI, treasury redirection, or LP transfer instruction exists.
 // Mainnet activation additionally requires SBF integration qualification and deployment.
 #[program]
 pub mod bluemint_vault {
     use super::*;
+    /// The fee wallet claims fees and approves the gross, per-mint receipt.
+    /// Each receipt identifier can fund this vault only once.
+    pub fn allocate_launchlab_fees(
+        ctx: Context<AllocateLaunchlab>,
+        _receipt: [u8; 32],
+        gross: u64,
+    ) -> Result<()> {
+        require!(gross >= 2, Fault::Amount);
+        let mint = ctx.accounts.mint.key();
+        verify_curve(&ctx.accounts.curve, mint, false)?;
+        let config = platform_cp_config(&ctx.accounts.platform)?;
+        let (m0, m1) = if mint < USDC {
+            (mint, USDC)
+        } else {
+            (USDC, mint)
+        };
+        let pool = pda(&[b"pool", config.as_ref(), m0.as_ref(), m1.as_ref()]);
+        let (treasury, liquidity) = math::fee_split(gross);
+        require!(ctx.accounts.treasury_quote.amount >= gross, Fault::Balance);
+        token::transfer(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.treasury_quote.to_account_info(),
+                    to: ctx.accounts.quote_vault.to_account_info(),
+                    authority: ctx.accounts.treasury.to_account_info(),
+                },
+            ),
+            liquidity,
+        )?;
+        let state = &mut ctx.accounts.launch;
+        // A direct-pool launch has a nonzero seed, so the two policies cannot mix.
+        require!(
+            state.initial_liquidity_quote == 0 && state.pending_buy == 0,
+            Fault::Phase
+        );
+        require!(
+            state.pool == Pubkey::default() || state.pool == pool,
+            Fault::Pool
+        );
+        state.pool = pool;
+        state.owner = TREASURY;
+        state.mint = mint;
+        state.authority_bump = ctx.bumps.authority;
+        state.pending_quote = state
+            .pending_quote
+            .checked_add(liquidity)
+            .ok_or(Fault::Amount)?;
+        state.net_fees = state.net_fees.checked_add(gross).ok_or(Fault::Amount)?;
+        state.treasury_paid = state
+            .treasury_paid
+            .checked_add(treasury)
+            .ok_or(Fault::Amount)?;
+        emit!(FeesCollected {
+            mint,
+            net_quote: gross,
+            treasury_quote: treasury,
+            liquidity_quote: liquidity
+        });
+        Ok(())
+    }
+
     pub fn create_launch<'info>(
         ctx: Context<'_, '_, '_, 'info, CreateLaunch<'info>>,
         budget: u64,
@@ -318,9 +384,37 @@ pub mod bluemint_vault {
         Ok(())
     }
     pub fn reinvest<'info>(ctx: Context<'_, '_, '_, 'info, LaunchAction<'info>>) -> Result<()> {
-        require!(ctx.accounts.launch.ready, Fault::Phase);
-        let keys = action_keys(&ctx)?;
         let r = ctx.remaining_accounts;
+        let imported = ctx.accounts.launch.initial_liquidity_quote == 0;
+        let (keys, trade_fee, creator_fee) = if imported {
+            require!(
+                ctx.accounts.launch.owner == TREASURY && r.len() == 14,
+                Fault::Phase
+            );
+            verify_curve(&r[12], ctx.accounts.mint.key(), true)?;
+            let config = platform_cp_config(&r[13])?;
+            let keys = validate_keys(
+                &r[..12],
+                ctx.accounts.mint.key(),
+                ctx.accounts.authority.key(),
+                config,
+            )?;
+            require_keys_eq!(keys.pool, ctx.accounts.launch.pool, Fault::Pool);
+            validate_pool_identity(&r[2], &keys, config)?;
+            require_keys_eq!(*r[0].owner, CPMM, Fault::Config);
+            let data = r[0].try_borrow_data()?;
+            require!(
+                data.len() >= 124 && data[..8] == discriminator("account:AmmConfig"),
+                Fault::Config
+            );
+            let trade = read_u64(&data, 12)?;
+            let creator = read_u64(&data, 108)?;
+            require!(trade <= 10000 && creator <= 12500, Fault::Config);
+            (keys, trade, creator)
+        } else {
+            require!(ctx.accounts.launch.ready, Fault::Phase);
+            (action_keys(&ctx)?, 2500, 12500)
+        };
         require_keys_eq!(
             ctx.accounts.lp_vault.key(),
             get_associated_token_address(&ctx.accounts.authority.key(), &keys.lp_mint),
@@ -344,8 +438,8 @@ pub mod bluemint_vault {
         let budget = ctx.accounts.launch.pending_quote.min(quote / 1000);
         require!(budget >= 100, Fault::Amount);
         let buy = budget / 2;
-        let expected =
-            math::expected_buy(buy, quote, tokens, 2500, 12500).map_err(|_| Fault::Amount)?;
+        let expected = math::expected_buy(buy, quote, tokens, trade_fee, creator_fee)
+            .map_err(|_| Fault::Amount)?;
         let minimum = (expected as u128 * 9950 / 10000) as u64;
         require!(minimum > 0, Fault::Amount);
         let quote_before = ctx.accounts.quote_vault.amount;
@@ -421,6 +515,36 @@ pub mod bluemint_vault {
         });
         Ok(())
     }
+}
+
+#[account]
+pub struct UsedReceipt {}
+
+#[derive(Accounts)]
+#[instruction(_receipt: [u8;32])]
+pub struct AllocateLaunchlab<'info> {
+    #[account(mut,address=TREASURY)]
+    pub treasury: Signer<'info>,
+    pub mint: Box<Account<'info, Mint>>,
+    #[account(address=USDC)]
+    pub quote_mint: Box<Account<'info, Mint>>,
+    /// CHECK: Raydium owner, PDA, discriminator, platform and pair checked.
+    pub curve: UncheckedAccount<'info>,
+    /// CHECK: fixed BlueMint platform and Raydium owner checked by platform_cp_config.
+    pub platform: UncheckedAccount<'info>,
+    #[account(init,payer=treasury,space=8,seeds=[b"fee_receipt", mint.key().as_ref(), &_receipt],bump)]
+    pub used_receipt: Account<'info, UsedReceipt>,
+    #[account(init_if_needed,payer=treasury,space=8+LaunchVault::INIT_SPACE,seeds=[b"launch",mint.key().as_ref()],bump)]
+    pub launch: Box<Account<'info, LaunchVault>>,
+    #[account(seeds=[b"authority",mint.key().as_ref()],bump)]
+    pub authority: SystemAccount<'info>,
+    #[account(mut,associated_token::mint=quote_mint,associated_token::authority=treasury)]
+    pub treasury_quote: Box<Account<'info, TokenAccount>>,
+    #[account(init_if_needed,payer=treasury,associated_token::mint=quote_mint,associated_token::authority=authority)]
+    pub quote_vault: Box<Account<'info, TokenAccount>>,
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
@@ -515,18 +639,26 @@ fn pda(seeds: &[&[u8]]) -> Pubkey {
     Pubkey::find_program_address(seeds, &CPMM).0
 }
 fn validate_remaining(r: &[AccountInfo], mint: Pubkey, creator: Pubkey) -> Result<PoolKeys> {
+    validate_keys(r, mint, creator, CP_CONFIG)
+}
+fn validate_keys(
+    r: &[AccountInfo],
+    mint: Pubkey,
+    creator: Pubkey,
+    config: Pubkey,
+) -> Result<PoolKeys> {
     require!(r.len() == 12, Fault::Account);
     let (m0, m1) = if mint < USDC {
         (mint, USDC)
     } else {
         (USDC, mint)
     };
-    let pool = pda(&[b"pool", CP_CONFIG.as_ref(), m0.as_ref(), m1.as_ref()]);
+    let pool = pda(&[b"pool", config.as_ref(), m0.as_ref(), m1.as_ref()]);
     let lp = pda(&[b"pool_lp_mint", pool.as_ref()]);
     let v0 = pda(&[b"pool_vault", pool.as_ref(), m0.as_ref()]);
     let v1 = pda(&[b"pool_vault", pool.as_ref(), m1.as_ref()]);
     let expected = [
-        CP_CONFIG,
+        config,
         pda(&[b"vault_and_lp_mint_auth_seed"]),
         pool,
         m0,
@@ -537,7 +669,7 @@ fn validate_remaining(r: &[AccountInfo], mint: Pubkey, creator: Pubkey) -> Resul
         pda(&[b"observation", pool.as_ref()]),
         POOL_FEE,
         TOKEN_2022,
-        pda(&[b"creator_fee_share", creator.as_ref(), CP_CONFIG.as_ref()]),
+        pda(&[b"creator_fee_share", creator.as_ref(), config.as_ref()]),
     ];
     for (i, key) in expected.iter().enumerate() {
         require_keys_eq!(r[i].key(), *key, Fault::Account)
@@ -577,6 +709,16 @@ fn validate_config(info: &AccountInfo) -> Result<()> {
     Ok(())
 }
 fn validate_pool(info: &AccountInfo, keys: &PoolKeys, creator: Pubkey) -> Result<()> {
+    validate_pool_identity(info, keys, CP_CONFIG)?;
+    let d = info.try_borrow_data()?;
+    require!(d[40..72] == creator.to_bytes(), Fault::Pool);
+    require!(
+        d[390] == 1 && d[389] == if keys.quote_first { 1 } else { 2 },
+        Fault::Config
+    );
+    Ok(())
+}
+fn validate_pool_identity(info: &AccountInfo, keys: &PoolKeys, config: Pubkey) -> Result<()> {
     require_keys_eq!(*info.owner, CPMM, Fault::Pool);
     let d = info.try_borrow_data()?;
     require!(
@@ -584,8 +726,7 @@ fn validate_pool(info: &AccountInfo, keys: &PoolKeys, creator: Pubkey) -> Result
         Fault::Pool
     );
     for (offset, key) in [
-        (8, CP_CONFIG),
-        (40, creator),
+        (8, config),
         (72, keys.vault0),
         (104, keys.vault1),
         (136, keys.lp_mint),
@@ -594,11 +735,40 @@ fn validate_pool(info: &AccountInfo, keys: &PoolKeys, creator: Pubkey) -> Result
     ] {
         require!(d[offset..offset + 32] == key.to_bytes(), Fault::Pool)
     }
+    Ok(())
+}
+fn verify_curve(curve: &AccountInfo, mint: Pubkey, graduated: bool) -> Result<()> {
+    require_keys_eq!(*curve.owner, LAUNCHLAB, Fault::Pool);
+    require_keys_eq!(
+        curve.key(),
+        Pubkey::find_program_address(&[b"pool", mint.as_ref(), USDC.as_ref()], &LAUNCHLAB).0,
+        Fault::Pool
+    );
+    let d = curve.try_borrow_data()?;
     require!(
-        d[390] == 1 && d[389] == if keys.quote_first { 1 } else { 2 },
+        d.len() >= 269 && d[..8] == discriminator("account:PoolState"),
+        Fault::Pool
+    );
+    for (o, k) in [
+        (141, CURVE_CONFIG),
+        (173, PLATFORM),
+        (205, mint),
+        (237, USDC),
+    ] {
+        require!(d[o..o + 32] == k.to_bytes(), Fault::Pool);
+    }
+    require!(!graduated || (d[17] == 2 && d[20] == 1), Fault::Phase);
+    Ok(())
+}
+fn platform_cp_config(platform: &AccountInfo) -> Result<Pubkey> {
+    require_keys_eq!(platform.key(), PLATFORM, Fault::Config);
+    require_keys_eq!(*platform.owner, LAUNCHLAB, Fault::Config);
+    let d = platform.try_borrow_data()?;
+    require!(
+        d.len() >= 720 && d[..8] == discriminator("account:PlatformConfig"),
         Fault::Config
     );
-    Ok(())
+    Ok(Pubkey::new_from_array(d[688..720].try_into().unwrap()))
 }
 fn action_keys(ctx: &Context<LaunchAction>) -> Result<PoolKeys> {
     let keys = validate_remaining(
