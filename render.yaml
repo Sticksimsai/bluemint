@@ -12,6 +12,8 @@ services:
       mountPath: /var/data
       sizeGB: 1
     envVars:
+      - key: PUBLIC_URL
+        value: "https://bluemint.fun"
       - key: NODE_VERSION
         value: 24.22.1
       - key: NODE_ENV
