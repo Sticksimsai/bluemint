@@ -15,9 +15,47 @@ async function showServerMint(){homeMain.hidden=true;detailMain.hidden=false;if(
 const originalCreatePage=showCreate;showCreate=function(){originalCreatePage();const walletPanel=document.createElement('section');walletPanel.className='launch-wallet-panel';walletPanel.innerHTML='<div><span class="eyebrow blue">YOUR LAUNCH WALLET</span><h3>Connect to save your launch.</h3><p>Sign-in proves ownership. Transactions require a separate wallet approval.</p></div><button type="button" class="pixel-mint-button" data-wallet-connect>Connect wallet</button>';$('#createForm').prepend(walletPanel);walletLabel();if(!apiState.enabled)return;$('.identity-lock span').textContent='Profile is immutable in this registry; on-chain metadata lock is not deployed.';const box=document.createElement('div');box.className='info-box';box.textContent='Connected backend: sign in with your Solana wallet to save. Launch identity, PFP and social links become publicly available in this registry.';$('#createForm').prepend(box)};
 (async()=>{try{const response=await fetch('/api/config');if(!response.ok)throw Error('Launch service unavailable');const config=await response.json();if(config.apiVersion!==1)throw Error('Launch service unavailable');apiState.enabled=true;apiState.config=config;apiState.session=await api('/auth/me');walletLabel();$('.notice').innerHTML=`<span>SOLANA MAINNET</span> USDC launch registry · Wallet approvals required`;await loadLaunches();await loadWatchlist();route();const stream=new EventSource('/api/events');stream.addEventListener('refresh',async()=>{window.dispatchEvent(new Event('bluemint:refresh'));try{await loadLaunches();if(location.hash==='#mint')showServerMint()}catch{}});document.addEventListener('click',e=>{const star=e.target.closest('[data-save]');if(star&&apiState.session?.wallet){const id=Number(star.dataset.save);setTimeout(()=>api('/watchlist',{method:'POST',body:JSON.stringify({launchId:String(id),saved:saved.includes(id)})}).catch(err=>toast(err.message)),0)}})}catch(e){if(apiState.enabled){$('.notice').textContent='Backend unavailable: '+e.message;tokens=[];render()}else {$('.notice').textContent='Launch service unavailable. Please retry shortly.';tokens=[];render()}}})();
 
-async function showChainStatus(){const box=$('#chainStatus');if(!box)return;try{const s=await api('/chain/status');if(!box.isConnected)return;box.innerHTML=`<b>Direct USDC pool · The Mint vault</b><div>Solana mainnet · 50% developer budget seeds liquidity</div><div>1.25% creator fee + Raydium trading fee · net receipts split 40% / 60%</div><p>${esc(s.issue|| (s.mintPreparationReady?'Launch transactions enabled.':'Launch transactions disabled.'))}</p>`}catch{box.textContent='Unable to verify launch readiness.'}}
+function isLaunchLab(){return apiState.config?.mode==='launchlab'}
+function launchLabPanel(t,panel){
+  const target=Number(apiState.config.raiseUnits)/1e6;
+  panel.innerHTML='<h3>Launch on Raydium</h3><p>Circle USDC · 80% of supply on the curve · '+esc(target.toLocaleString())+' USDC graduation target. Initial developer buy: zero. The curve platform fee is 1.25% plus Raydium fees. Automatic reinvestment is pending.</p><button class="pixel-mint-button">Review launch in wallet</button><p role="status"></p>';
+  const button=panel.querySelector('button'),status=panel.querySelector('[role=status]');
+  const post=(action,data={})=>api('/launches/'+t.id+'/'+action,{method:'POST',body:JSON.stringify(data)});
+  async function confirm(){
+    const result=await post('confirm');
+    status.textContent='Finalized mint: '+result.mint;
+    button.hidden=true;
+    await loadLaunches();
+    if(location.hash==='#token/'+t.id)route();
+  }
+  async function wait(){
+    for(let i=0;i<35 && panel.isConnected;i++){
+      try{await confirm();return}catch{await new Promise(done=>setTimeout(done,2500))}
+    }
+    if(panel.isConnected){status.textContent='Finality pending. Check again before retrying.';button.disabled=false}
+  }
+  if(t.status==='live'){button.hidden=true;status.textContent='Finalized mint: '+t.mint;return}
+  button.onclick=async()=>{
+    button.disabled=true;
+    try{
+      if(apiState.session?.wallet!==t.owner)throw Error('Connect the wallet that saved this profile on the launch page.');
+      const row=(await api('/launches/'+t.id+'/chain')).launch;
+      if(row){try{await confirm();return}catch{/* Prepare reconciles expired submissions. */}}
+      status.textContent='Simulating launch…';
+      const prepared=await post('prepare');
+      const signed=await BlueMintWallet.signPrepared(prepared.transaction, t.owner);
+      const result=await post('submit',{transaction:signed});
+      status.textContent='Awaiting finality: '+result.signature;
+      await wait();
+    }catch(error){status.textContent=error.message;button.disabled=false}
+  };
+  if(t.owner===apiState.session?.wallet)api('/launches/'+t.id+'/chain').then(r=>{
+    if(r.launch?.status==='submitted' && panel.isConnected){button.disabled=true;status.textContent='Checking submitted transaction…';wait()}
+  }).catch(()=>{});
+}
+async function showChainStatus(){const box=$('#chainStatus');if(!box)return;try{const s=await api('/chain/status');if(!box.isConnected)return;if(isLaunchLab()){box.textContent=s.issue||(s.mintPreparationReady?"Raydium LaunchLab · USDC launches enabled":"LaunchLab configured · wallet launches disabled");return}box.innerHTML=`<b>Direct USDC pool · The Mint vault</b><div>Solana mainnet · 50% developer budget seeds liquidity</div><div>1.25% creator fee + Raydium trading fee · net receipts split 40% / 60%</div><p>${esc(s.issue|| (s.mintPreparationReady?'Launch transactions enabled.':'Launch transactions disabled.'))}</p>`}catch{box.textContent='Unable to verify launch readiness.'}}
 const createWithWallet=showCreate;showCreate=function(){createWithWallet();const status=document.createElement('div');status.id='chainStatus';status.className='integration-status';status.textContent='Checking vault deployment…';$('#createForm').append(status);if(apiState.enabled)showChainStatus();else status.textContent='Connecting to launch service…'};
-const renderWithProfile=renderPage;renderPage=function(t){renderWithProfile(t);if(!apiState.enabled)return;const panel=document.createElement('section');panel.className='chain-actions';panel.innerHTML=`<span class="eyebrow blue">USDC LAUNCH</span><h3>Create your token’s market.</h3><p>Three wallet steps: mint your token, seed its Raydium pool, complete your developer buy. Half your USDC budget seeds liquidity; half buys tokens. SOL covers rent and network costs.</p><label class="field">Developer budget · USDC<input id="devBuyBudget" inputmode="decimal" placeholder="Enter USDC amount" autocomplete="off"></label><p>Liquidity is held by The Mint’s program. Raydium deducts its protocol share from creator fees before the 40% treasury / 60% liquidity split. No holder rewards.</p><button class="pixel-mint-button" id="prepareChain">Review next launch step</button><button class="text-btn" id="refundBuy">Refund unspent buy</button><p id="chainResult" role="status"></p>`;detailMain.append(panel);const output=panel.querySelector('#chainResult'),budget=panel.querySelector('#devBuyBudget');
+const renderWithProfile=renderPage;renderPage=function(t){renderWithProfile(t);if(!apiState.enabled)return;const panel=document.createElement('section');panel.className='chain-actions';if(isLaunchLab()){detailMain.append(panel);launchLabPanel(t,panel);return}panel.innerHTML=`<span class="eyebrow blue">USDC LAUNCH</span><h3>Create your token’s market.</h3><p>Three wallet steps: mint your token, seed its Raydium pool, complete your developer buy. Half your USDC budget seeds liquidity; half buys tokens. SOL covers rent and network costs.</p><label class="field">Developer budget · USDC<input id="devBuyBudget" inputmode="decimal" placeholder="Enter USDC amount" autocomplete="off"></label><p>Liquidity is held by The Mint’s program. Raydium deducts its protocol share from creator fees before the 40% treasury / 60% liquidity split. No holder rewards.</p><button class="pixel-mint-button" id="prepareChain">Review next launch step</button><button class="text-btn" id="refundBuy">Refund unspent buy</button><p id="chainResult" role="status"></p>`;detailMain.append(panel);const output=panel.querySelector('#chainResult'),budget=panel.querySelector('#devBuyBudget');
  const prepareStep=async(action)=>{try{
   if(!apiState.session?.wallet){location.hash='create';toast('Connect your wallet on the launch page first.');return}
   output.textContent='Checking mainnet readiness and simulating…';
@@ -44,6 +82,11 @@ renderPage=function(t){clearTimeout(marketTimer);launchWithTransactions(t);if(!a
  $('.trade-panel').innerHTML=`<h2>${t.status==='live'?'USDC market':'Awaiting launch'}</h2><p>${t.status==='live'?'This token has a finalized Raydium pool. Terminal discovery depends on each terminal’s indexing.':'Complete the launch steps below to create a market.'}</p>${t.mint?`<p>Mint</p><code style="overflow-wrap:anywhere">${esc(t.mint)}</code><p><a href="https://solscan.io/token/${esc(t.mint)}" target="_blank" rel="noopener noreferrer">View on Solscan</a></p>`:''}`;
  $('.liquidity-widget').innerHTML='<h3>The Mint</h3><p>Half the developer budget seeds liquidity. Trading fees received by the vault are split 40% to the launchpad and 60% to token liquidity.</p><a href="#mint">View The Mint</a>';
  $('.chart-panel').innerHTML='<div class="empty">'+(t.status==='live'?'Loading finalized pool observations…':'Market observations appear after the USDC pool is finalized.')+'</div>';activity('trades');
+ if(isLaunchLab()){
+   $('.liquidity-widget').textContent='1.25% curve platform fee. Automated buybacks and liquidity deposits are pending.';
+   $('.chart-panel').textContent='LaunchLab price history is not indexed yet.';
+   return;
+ }
  if(t.status!=='live')return;
  const update=async()=>{if(location.hash!=='#token/'+t.id)return;try{const m=await api(`/launches/${t.id}/candles`);if(location.hash!=='#token/'+t.id)return;if(!m.live)throw Error(m.reason);$('#pagePrice').textContent=m.price.toPrecision(6);$('#liveCap').textContent=fmt(m.marketCapUsdc);$('#liveLiquidity').textContent=fmt(m.usdcLiquidity);
  const candles=m.items.slice(-80),low=Math.min(...candles.map(c=>c.low)),high=Math.max(...candles.map(c=>c.high)),range=Math.max(high-low,high*.005),y=p=>180-(p-low)/range*150,w=600/Math.max(candles.length,1);

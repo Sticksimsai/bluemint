@@ -27,7 +27,7 @@ services:
       - key: PLATFORM_FEE_WALLET
         value: "85a8ERAhk1ZPYyGwj4zkjVKZdfqaEUcSpTt9GCz5xA7j"
       - key: RAYDIUM_PLATFORM_ID
-        value: "3bucQpVsuemJMHNcMCdSGDzvnorZXYowNFQbBch6gLhz"
+        value: "GobSXmdvJMVk67KVwkyqGpoMEq6b6SoNrd7NwNW7iwM8"
       - key: SOLANA_RPC_URL
         value: "https://api.mainnet-beta.solana.com"
       - key: USDC_QUOTE_MINT
@@ -36,5 +36,11 @@ services:
         value: "8gj14w8vkNZjJTPak6e96Uf1sY438WKheH4s5dHyxiRw"
       - key: ENABLE_TOKEN_MINTING
         value: "false"
+      - key: LAUNCH_MODE
+        value: launchlab
+      - key: LAUNCH_RAISE_USDC_UNITS
+        value: "10000000000"
+      - key: ENABLE_LAUNCHLAB_MINTING
+        value: "true"
       - key: ENABLE_DEVNET_MINTING
         value: "false"
