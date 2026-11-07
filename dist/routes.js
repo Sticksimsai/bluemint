@@ -6,7 +6,7 @@ function tokenPath(id){
 }
 function migrateBookmark(){
   const old=location.hash.slice(1);
-  const aliases={create:'/launch',mint:'/mint',setup:'/setup',watchlist:'/watchlist',discover:'/'};
+  const aliases={create:'/launch',mint:'/',setup:'/setup',watchlist:'/watchlist',discover:'/'};
   const docs=location.pathname.startsWith('/docs');
   const path=docs&&docSections.includes(old)?'/docs/'+old:aliases[old]||(/^token\/[a-zA-Z0-9]+$/.test(old)?'/'+old:null);
   if(path)history.replaceState(null,'',path+location.search);

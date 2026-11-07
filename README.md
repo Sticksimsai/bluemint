@@ -34,7 +34,7 @@ Never commit wallet keys or RPC credentials. New Pump launches need no Memebase 
 - Native Pump creation with an optional atomic developer buy, simulation before signing and before submission, and finalized signature verification.
 - Content-addressed, mint-bound token metadata. Preparation verifies embedded Token-2022 metadata and that its update authority is absent. The metadata is hosted by the application rather than permanent decentralized storage.
 - Recovery that reconciles the old blockhash and finalized curve before replacing an expired preparation.
-- Pump curve and canonical PumpSwap reserve readers, quote-aware token cards and one-minute charts. Curve-trade backfill is bounded and volume is marked partial. PumpSwap trade-volume backfill is not implemented.
+- Pump curve and canonical PumpSwap reserve readers, quote-aware token cards and one-minute charts. Curve-trade backfill is bounded and volume is marked partial. Finalized per-coin subscriptions index new curve and PumpSwap trades, with bounded HTTP backfill and explicit partial coverage.
 - Memebase pixel branding, responsive retro cards, a simplified launch form, clean page URLs and rewritten product docs.
 - Legacy BlueMint USDC markets and treasury claims remain accessible without changing their mints, pools, metadata or recipients.
 
@@ -52,4 +52,4 @@ The former Raydium platform fee and USDC vault apply only to legacy BlueMint mar
 
 See [MIGRATION-MEMEBASE.md](MIGRATION-MEMEBASE.md) for storage separation, production flags and implementation limits. Product documentation is served at `/docs`; creator-fee guidance at `/fees`; existing USDC claims at `/fees/legacy`.
 
-The deployment remains on `bluemint.fun` and the existing `bluemint-api` Render service until a new domain or infrastructure name is explicitly configured.
+The public origin is `https://memebase.fun`. The existing `bluemint-api` Render service and stored legacy metadata remain in place. King of Memes ranks COINx coins by indexed volume over a rolling five-minute window. The former `/mint` page redirects home.
