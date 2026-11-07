@@ -37,97 +37,37 @@ async function signLaunchLab(profile, message) {
 }
 
 function showLaunchLabForm() {
-  if (chartObserver) { chartObserver.disconnect(); chartObserver = null; }
-  homeMain.hidden = true;
-  detailMain.hidden = false;
-  document.title = 'Launch a token — Memebase';
-  detailMain.innerHTML = `<div class="quick-launch">
-    <a class="token-breadcrumb" href="/">← Discover</a>
-    <div class="create-heading"><h1>Launch a token</h1></div>
-    <form class="create-form" id="createForm">
-      <fieldset><label class="pfp-upload" for="quickPfp"><span id="pfpPreview">＋</span>
-        <span><b>Token image</b><small>PNG, JPG or WebP · 256 KB max</small></span>
-        <input type="file" id="quickPfp" name="image" accept="image/png,image/jpeg,image/webp" required></label>
-      <div class="form-grid"><label class="field">Name<input name="name" maxlength="32" required></label>
-        <label class="field">Ticker<input name="ticker" maxlength="10" pattern="[A-Za-z0-9]{2,10}" required></label></div>
-      <label class="field">Description<textarea name="desc" maxlength="160" required></textarea></label>
-      <label class="field">Developer buy · ${isPump()?'COINx':'USDC'} (optional)<input name="devBuyQuote" inputmode="decimal" placeholder="0" pattern="[0-9]{1,9}([.][0-9]{1,8})?"></label>
-      <p class="form-help">Buy from the launch curve with your wallet. Leave blank to launch without buying.</p>
-      <details><summary>Add links (optional)</summary>
-        <label class="field">X / Twitter<input type="url" name="twitter" placeholder="https://x.com/"></label>
-        <label class="field">Website<input type="url" name="website" placeholder="https://"></label></details>
-      </fieldset>
-      <p class="form-help">${isPump()?'COINx pair on Pump · Pump trading fees apply. SOL covers creation costs.':'USDC pair · Raydium fees apply.'}</p>
-      <p class="form-help">Your image, website and social links are pinned to this mint. No additional Memebase trading fee.</p>
-      <button class="pixel-mint-button primary full" type="submit">Launch token</button>
-      <p role="status" aria-live="polite"></p><a class="quick-resume" hidden>Open saved token</a>
-    </form></div>`;
-  const form = document.querySelector('#createForm');
-  const fieldset = form.querySelector('fieldset'), button = form.querySelector('button');
-  const status = form.querySelector('[role=status]'), resume = form.querySelector('.quick-resume');
-  const message = text => { status.textContent = text; };
-  const input = form.elements.image, preview = form.querySelector('#pfpPreview');
-  let imageRead, busy = false, saved, lastFingerprint, requestKey;
-  input.onchange = () => {
-    const file = input.files[0];
-    input.setCustomValidity(''); preview.textContent = '＋'; imageRead = null;
-    if (!file) return;
-    if (!['image/png','image/jpeg','image/webp'].includes(file.type) || file.size > 256*1024) {
-      input.setCustomValidity('Choose a PNG, JPG or WebP up to 256 KB.'); input.reportValidity(); return;
-    }
-    imageRead = new Promise(resolve => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (input.files[0] === file) {
-          const img = new Image(); img.alt = ''; img.src = reader.result; preview.replaceChildren(img);
-        }
-        resolve(reader.result);
-      };
-      reader.onerror = () => resolve(null); reader.readAsDataURL(file);
-    });
-  };
-  form.onsubmit = async event => {
-    event.preventDefault();
-    if (busy) return;
-    busy = true; button.disabled = true;
-    const data = new FormData(form);
-    fieldset.disabled = true;
-    try {
-      if (!apiState.session?.wallet) {
-        message('Connect your wallet and sign in to continue.');
-        await walletLogin();
-        if (!apiState.session?.wallet) throw Error('Connect a wallet to launch.');
-      }
-      const owner = apiState.session.wallet;
-      const values = Object.fromEntries(['name','ticker','desc','twitter','website','devBuyQuote'].map(k=>[k,String(data.get(k)||'').trim()]));if(!isPump())values.devBuyUsdc=values.devBuyQuote;
-      values.ticker = values.ticker.toUpperCase(); values.pfp = await imageRead;
-      if (!values.pfp) throw Error('Choose your token image again.');
-      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([owner,values])));
-      const fingerprint = Array.from(new Uint8Array(digest), n=>n.toString(16).padStart(2,'0')).join('');
-      if (lastFingerprint !== fingerprint) {
-        lastFingerprint = fingerprint; saved = null; resume.hidden = true;
-        const key = 'bm.launch.' + fingerprint;
-        requestKey = sessionStorage.getItem(key) || crypto.randomUUID(); sessionStorage.setItem(key,requestKey);
-      }
-      message('Preparing your launch…');
-      saved ??= await apiState.saveLaunch({...values,requestKey});
-      resume.href = tokenPath(saved.id);
-      const row = (await api('/launches/'+saved.id+'/chain')).launch;
-      if (!row || !['submitted','confirmed'].includes(row.status)) {
-        await signLaunchLab(saved,message);
-      }
-      if (!tokens.some(t=>t.id===saved.id)) tokens.unshift(saved);
-      message('Checking transaction confirmation…'); navigate(tokenPath(saved.id));
-    } catch (e) {
-      message(e.message || 'Launch interrupted. Try again.');
-      if (saved) {
-        if (!tokens.some(t=>t.id===saved.id)) tokens.unshift(saved);
-        resume.hidden = false;
-      }
-    } finally {
-      busy = false; button.disabled = false; fieldset.disabled = false;
-    }
-  };
+ if(chartObserver){chartObserver.disconnect();chartObserver=null}
+ homeMain.hidden=true;detailMain.hidden=false;document.title='Launch a coin — Memebase';
+ const quote=isPump()?'COINx':'USDC',decimals=isPump()?8:6;
+ detailMain.innerHTML=`<div class="quick-launch preview-launch"><a class="token-breadcrumb" href="/">Back to discover</a><div class="launch-page-heading"><div><span class="eyebrow blue">YOUR NEXT COIN STARTS HERE</span><h1>Make it yours.</h1><p>Set up your coin. Preview it. Approve the launch in your wallet.</p></div><span class="launch-network">PUMP / ${quote}</span></div><div class="launch-layout"><form class="create-form" id="createForm" novalidate>
+ <div class="launch-wallet-row"><div><b>Your launch wallet</b><p>This wallet becomes the coin creator.</p></div><button type="button" class="pixel-mint-button" data-wallet-connect>Connect wallet</button></div>
+ <fieldset><section class="launch-form-section"><h2><span>01</span> Coin identity</h2><label class="pfp-upload" for="quickPfp"><span id="pfpPreview">＋</span><span><b>Choose your token image</b><small>PNG, JPG or WebP · up to 8 MB<br>Automatically optimized for your coin.</small></span><input type="file" id="quickPfp" name="image" accept="image/png,image/jpeg,image/webp" aria-describedby="imageError imageResult"></label><p id="imageError" class="launch-field-error" role="alert"></p><p id="imageResult" class="launch-image-result" role="status"></p>
+ <div class="form-grid"><label class="field">Token name<input name="name" maxlength="32" placeholder="Your coin name" autocomplete="off" aria-describedby="nameError"><span id="nameError" class="launch-field-error" data-error-for="name"></span></label><label class="field">Ticker<input name="ticker" maxlength="10" placeholder="MEME" autocomplete="off" autocapitalize="characters" aria-describedby="tickerError"><span id="tickerError" class="launch-field-error" data-error-for="ticker"></span></label></div>
+ <label class="field">Description<textarea name="desc" maxlength="160" placeholder="What is your meme about?" aria-describedby="descError"></textarea><span id="descError" class="launch-field-error" data-error-for="desc"></span></label></section>
+ <section class="launch-form-section"><h2><span>02</span> Official links <small>Optional</small></h2><label class="field">X / Twitter<input name="twitter" inputmode="url" placeholder="@yourcoin or https://x.com/yourcoin" autocomplete="off" aria-describedby="twitterError"><span id="twitterError" class="launch-field-error" data-error-for="twitter"></span></label><label class="field">Website<input name="website" inputmode="url" placeholder="yourcoin.com" autocomplete="off" aria-describedby="websiteError"><span id="websiteError" class="launch-field-error" data-error-for="website"></span></label><p class="form-help">Your image and links are pinned to the mint at launch.</p></section>
+ <section class="launch-form-section"><h2><span>03</span> Launch settings</h2><div class="form-grid"><label class="field">Quote asset<input value="${quote} · Solana mainnet" readonly></label><label class="field">Token supply<input value="1,000,000,000" readonly></label></div><label class="field">Developer buy · ${quote} <small>Optional</small><input name="devBuyQuote" inputmode="decimal" placeholder="0" autocomplete="off" aria-describedby="devBuyError"><span id="devBuyError" class="launch-field-error" data-error-for="devBuyQuote"></span></label><p class="form-help">Leave at zero to launch without buying. SOL covers creation and network fees.</p><div class="launch-fee-note"><span>Trading fees</span><b>Pump’s fee schedule</b><span>Extra Memebase trading fee</span><b>None</b></div></section></fieldset>
+ <button class="pixel-mint-button primary full" type="submit">Launch coin</button><p class="launch-action-status" data-launch-status role="status" aria-live="polite"></p><a class="quick-resume" hidden>Open saved token</a></form>
+ <aside class="launch-preview"><div class="launch-preview-label"><span>YOUR COIN PREVIEW</span><span>COINx PAIR</span></div><article class="launch-preview-card"><div class="launch-preview-identity"><img id="previewPfp" src="/assets/memebase-m.png" alt="Your token preview" class="is-placeholder"><div><h2 id="previewName">Your coin</h2><span id="previewTicker">TICKER / ${quote}</span></div></div><p id="previewDescription">Your meme’s story goes here.</p><div class="launch-preview-chart"><div class="launch-preview-grid"></div><span>Your chart starts at launch.</span></div><div class="launch-preview-stats"><div><span>MARKET CAP · ${quote}</span><b>—</b></div><div><span>${quote} LIQUIDITY</span><b>—</b></div></div><div class="launch-preview-meta"><span>Network</span><b>Solana mainnet</b><span>Protocol</span><b>Pump</b><span>Developer buy</span><b id="previewBuy">0 ${quote}</b></div><div id="previewLinks" class="launch-preview-links"></div><div class="launch-preview-footer">PREVIEW / NOT MINTED</div></article><p class="launch-preview-help">A preview of your identity, not a price quote. Market data appears after the launch is finalized.</p><a class="launch-guide-link" href="/docs/launches">Read the launch guide</a></aside></div></div>`;
+ const form=$('#createForm'),fieldset=form.querySelector('fieldset'),button=form.querySelector('[type=submit]'),connect=form.querySelector('[data-wallet-connect]'),status=form.querySelector('[data-launch-status]'),resume=form.querySelector('.quick-resume'),input=form.elements.image,preview=$('#pfpPreview'),imageError=$('#imageError'),imageResult=$('#imageResult');
+ const tools=window.MemebaseLaunchTools;let imageRead=null,imageVersion=0,imagePending=false,busy=false,saved,lastFingerprint,requestKey,submitted=false;const dirty=new Set();
+ const values=()=>Object.fromEntries(['name','ticker','desc','twitter','website','devBuyQuote'].map(k=>[k,String(form.elements[k].value||'').trim()]));
+ const message=text=>{status.textContent=text};
+ function showErrors(errors,all=false){for(const key of ['name','ticker','desc','twitter','website','devBuyQuote']){const text=(all||dirty.has(key))?errors[key]||'':'';form.querySelector('[data-error-for="'+key+'"]').textContent=text;form.elements[key].setAttribute('aria-invalid',String(!!text))}}
+ function update(){const v=values();$('#previewName').textContent=v.name||'Your coin';$('#previewTicker').textContent=(v.ticker.toUpperCase()||'TICKER')+' / '+quote;$('#previewDescription').textContent=v.desc||'Your meme’s story goes here.';$('#previewBuy').textContent=(v.devBuyQuote||'0')+' '+quote;const links=[];for(const [key,label]of [['twitter','X / Twitter'],['website','Website']]){const url=tools.normalizeLink(v[key],key);if(url&&!tools.validate({...v,[key]:url},decimals)[key])links.push('<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+label+'</a>')}$('#previewLinks').innerHTML=links.join('');showErrors(tools.validate(v,decimals),submitted)}
+ for(const key of ['name','ticker','desc','twitter','website','devBuyQuote']){const field=form.elements[key];field.addEventListener('input',()=>{if(key==='ticker')field.value=field.value.toUpperCase();update()});field.addEventListener('blur',()=>{dirty.add(key);if(key==='twitter'||key==='website')field.value=tools.normalizeLink(field.value,key);update()})}
+ input.onchange=async()=>{const version=++imageVersion,file=input.files[0];imageRead=null;imageError.textContent='';imageResult.textContent='';preview.textContent='＋';$('#previewPfp').src='/assets/memebase-m.png';$('#previewPfp').classList.add('is-placeholder');if(!file)return;imagePending=true;button.disabled=true;imageResult.textContent='Optimizing your image…';const work=tools.prepareImage(file);imageRead=work.then(result=>result.dataUrl).catch(()=>null);try{const result=await work;if(version!==imageVersion)return;const img=new Image();img.alt='Selected token image';img.src=result.dataUrl;preview.replaceChildren(img);$('#previewPfp').src=result.dataUrl;$('#previewPfp').classList.remove('is-placeholder');imageResult.textContent='Ready · '+result.width+' × '+result.height+' · '+Math.ceil(result.bytes/1024)+' KB'}catch(e){if(version===imageVersion){imageError.textContent=e.message;imageResult.textContent='';imageRead=null}}finally{if(version===imageVersion){imagePending=false;button.disabled=busy}}};
+ walletLabel();
+ form.onsubmit=async event=>{event.preventDefault();if(busy||imagePending)return;submitted=true;const v=values();v.ticker=v.ticker.toUpperCase();for(const key of ['twitter','website']){v[key]=tools.normalizeLink(v[key],key);form.elements[key].value=v[key]}const errors=tools.validate(v,decimals);showErrors(errors,true);if(!imageRead){imageError.textContent='Choose a token image before launching.';message('Add your token image, then try again.');input.focus();return}if(Object.keys(errors).length){message('Check the highlighted fields.');form.elements[Object.keys(errors)[0]].focus();return}
+ busy=true;button.disabled=true;connect.disabled=true;fieldset.disabled=true;status.classList.remove('is-error');try{
+  v.pfp=await imageRead;if(!v.pfp)throw Error('Choose your token image again.');
+  if(!apiState.session?.wallet){message('Connect your wallet and sign in to continue.');await walletLogin();if(!apiState.session?.wallet)throw Error('Connect a wallet to launch.')}
+  const owner=apiState.session.wallet;if(!isPump())v.devBuyUsdc=v.devBuyQuote;
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify([owner,v]))),fingerprint=Array.from(new Uint8Array(digest),n=>n.toString(16).padStart(2,'0')).join('');
+  if(lastFingerprint!==fingerprint){lastFingerprint=fingerprint;saved=null;resume.hidden=true;const key='bm.launch.'+fingerprint;requestKey=sessionStorage.getItem(key)||crypto.randomUUID();sessionStorage.setItem(key,requestKey)}
+  message('Preparing your launch…');saved??=await apiState.saveLaunch({...v,requestKey});resume.href=tokenPath(saved.id);const row=(await api('/launches/'+saved.id+'/chain')).launch;if(!row||!['submitted','confirmed'].includes(row.status))await signLaunchLab(saved,message);if(!tokens.some(t=>t.id===saved.id))tokens.unshift(saved);message('Checking transaction confirmation…');navigate(tokenPath(saved.id));
+ }catch(e){let text=e.message||'Launch interrupted. Try again.';if(/InsufficientFundsForRent|insufficient.*SOL/i.test(text))text='Add SOL to your launch wallet for token creation and network fees, then retry.';if(/Origin not allowed/i.test(text))text='Open memebase.fun and refresh the page before trying again.';message(text);status.classList.add('is-error');if(saved){if(!tokens.some(t=>t.id===saved.id))tokens.unshift(saved);resume.hidden=false}}
+ finally{busy=false;button.disabled=imagePending;connect.disabled=false;fieldset.disabled=false}};
 }
 function launchLabPanel(t,panel){
   if(isPump()&&t.protocol!=='pump'){panel.innerHTML=t.status==='live'?'<h3>Legacy USDC market</h3><p>This token keeps its original Raydium LaunchLab pool and fee rules. Its mint and metadata are unchanged.</p><a href="/fees/legacy">Legacy USDC claims</a>':'<h3>Legacy saved profile</h3><p>New launches now use COINx on Pump.</p><a class="pixel-mint-button" href="/launch">Create a COINx launch</a>';return}
@@ -207,7 +147,7 @@ const profileActivity=activity;activity=function(tab){if(!apiState.enabled)retur
 const launchWithTransactions=renderPage;let marketTimer;
 renderPage=function(t){clearTimeout(marketTimer);launchWithTransactions(t);if(!apiState.enabled)return;if(chartObserver){chartObserver.disconnect();chartObserver=null}
  $('.status-chip').textContent=t.status==='live'?quoteOf(t)+' POOL':'LAUNCH DRAFT';$('.token-stat-row').innerHTML='<div><span>POOL PRICE · '+quoteOf(t)+'</span><strong id="pagePrice">—</strong></div><div><span>MARKET CAP · '+quoteOf(t)+'</span><strong id="liveCap">—</strong></div><div><span>'+quoteOf(t)+' RESERVE</span><strong id="liveLiquidity">—</strong></div><div><span>24H VOLUME</span><strong id="liveVolume">—</strong></div>';
- $('.trade-panel').innerHTML=`<h2>${t.status==='live'?quoteOf(t)+' market':'Awaiting launch'}</h2><p>${t.status==='live'?'This token has a finalized market. Terminal support depends on the terminal and quote asset.':'Complete the launch steps below to create a market.'}</p>${t.protocol==='pump'&&t.mint?`<p><a class="pixel-mint-button" href="https://pump.fun/coin/${esc(t.mint)}" target="_blank" rel="noopener noreferrer">Trade on Pump ↗</a></p>`:''}${t.mint?`<p>Mint</p><code style="overflow-wrap:anywhere">${esc(t.mint)}</code><p><a href="https://solscan.io/token/${esc(t.mint)}" target="_blank" rel="noopener noreferrer">View on Solscan</a></p>`:''}`;
+ $('.trade-panel').innerHTML=`<h2>${t.status==='live'?quoteOf(t)+' market':'Awaiting launch'}</h2><p>${t.status==='live'?'This token has a finalized market. Terminal support depends on the terminal and quote asset.':'Complete the launch steps below to create a market.'}</p>${t.protocol==='pump'&&t.mint?`<p><a class="pixel-mint-button" href="https://pump.fun/coin/${esc(t.mint)}" target="_blank" rel="noopener noreferrer">Trade on Pump</a></p>`:''}${t.mint?`<p>Mint</p><code style="overflow-wrap:anywhere">${esc(t.mint)}</code><p><a href="https://solscan.io/token/${esc(t.mint)}" target="_blank" rel="noopener noreferrer">View on Solscan</a></p>`:''}`;
  $('.liquidity-widget').innerHTML='<h3>The Mint</h3><p>Half the developer budget seeds liquidity. Trading fees received by the vault are split 40% to the launchpad and 60% to token liquidity.</p><a href="/docs/liquidity">View The Mint</a>';
  $('.chart-panel').innerHTML='<div class="empty">'+(t.status==='live'?'Loading finalized pool observations…':'Market observations appear after the USDC pool is finalized.')+'</div>';activity('trades');
  if(t.protocol!=='pump'&&isLaunchLab()){
@@ -265,5 +205,5 @@ async function showLegacyFees(){
 async function showFees(){
  if(!isPump()||location.pathname==='/fees/legacy')return showLegacyFees();
  homeMain.hidden=true;detailMain.hidden=false;document.title='Fees — Memebase';
- detailMain.innerHTML='<div class="quick-launch"><a href="/">← Discover</a><h1>Fees</h1><section class="create-form"><h2>Pump creator fees</h2><p>Pump applies its on-chain trading fee schedule. Your launch wallet is the coin creator and receives any creator fees. Memebase adds no separate trading fee.</p><a class="pixel-mint-button" href="https://fees.pump.fun/" target="_blank" rel="noopener noreferrer">Open Pump fees ↗</a><p>Connect the wallet used to launch your coin. COINx receipts are separate from USDC and SOL.</p><a href="/docs/fees">Read the fee docs</a></section><section class="create-form"><h3>Legacy USDC fees</h3><p>Existing BlueMint LaunchLab markets keep their original fee recipients and rules.</p><a class="pixel-mint-button" href="/fees/legacy">Legacy USDC claims</a></section></div>';
+ detailMain.innerHTML='<div class="quick-launch"><a href="/">← Discover</a><h1>Fees</h1><section class="create-form"><h2>Pump creator fees</h2><p>Pump applies its on-chain trading fee schedule. Your launch wallet is the coin creator and receives any creator fees. Memebase adds no separate trading fee.</p><a class="pixel-mint-button" href="https://fees.pump.fun/" target="_blank" rel="noopener noreferrer">Open Pump fees</a><p>Connect the wallet used to launch your coin. COINx receipts are separate from USDC and SOL.</p><a href="/docs/fees">Read the fee docs</a></section><section class="create-form"><h3>Legacy USDC fees</h3><p>Existing BlueMint LaunchLab markets keep their original fee recipients and rules.</p><a class="pixel-mint-button" href="/fees/legacy">Legacy USDC claims</a></section></div>';
 }
