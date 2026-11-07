@@ -9,7 +9,7 @@
  function state(){card.classList.toggle('conveyor-sleep',!visible||document.hidden);}
  function coin(item,isPreview=false){
   factory.classList.remove('is-stamping');void factory.offsetWidth;factory.classList.add('is-stamping');
-  const link=document.createElement(isPreview?'div':'a');link.className='conveyor-coin'+(isPreview?' is-preview':'');if(!isPreview)link.href='#token/'+item.id;
+  const link=document.createElement(isPreview?'div':'a');link.className='conveyor-coin'+(isPreview?' is-preview':'');if(!isPreview)link.href='/token/'+(item.mint||item.id);
   link.setAttribute('aria-label',isPreview?'Illustrative preview coin':`${item.name}, ${item.ticker}. Open confirmed token`);
   const face=document.createElement('div');face.className='coin-face';const canvas=document.createElement('canvas');canvas.width=24;canvas.height=24;canvas.setAttribute('aria-hidden','true');face.append(canvas);
   const label=document.createElement('span');label.className='coin-ticker';label.textContent=isPreview?'PREVIEW':item.ticker;link.append(face,label);lane.append(link);
