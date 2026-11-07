@@ -190,7 +190,7 @@ renderPage=function(t){clearTimeout(marketTimer);launchWithTransactions(t);if(!a
 
  }
  if(t.status!=='live')return;
- const update=async()=>{if(location.hash!=='#token/'+t.id)return;try{const m=await api(`/launches/${t.id}/candles`);if(location.hash!=='#token/'+t.id)return;if(!m.live)throw Error(m.reason);$('#pagePrice').textContent=m.price.toPrecision(6);$('#liveCap').textContent=fmt(m.marketCapUsdc);$('#liveLiquidity').textContent=fmt(m.usdcLiquidity);
+ const update=async()=>{if(location.hash!=='#token/'+t.id)return;try{const m=await api(`/launches/${t.id}/candles`);if(location.hash!=='#token/'+t.id)return;if(!m.live)throw Error(m.reason);$('#pagePrice').textContent=m.price.toPrecision(6);$('#liveCap').textContent=fmt(m.marketCapUsdc);$('#liveLiquidity').textContent=m.usdcLiquidity<1?m.usdcLiquidity.toLocaleString(undefined,{maximumFractionDigits:6}):fmt(m.usdcLiquidity);
  const candles=m.items.slice(-80),lo=Math.min(...candles.map(c=>c.low)),hi=Math.max(...candles.map(c=>c.high));
  const pad=Math.max((hi-lo)*.12,hi*.0005),bottom=lo-pad,top=hi+pad,y=p=>166-(p-bottom)/(top-bottom)*146;
  const end=candles.at(-1).time,start=Math.min(candles[0].time,end-9*60),x=time=>16+(time-start)/(end-start)*486;

@@ -47,7 +47,7 @@ if(path==='/api/events'&&req.method==='GET'){assert(clients.size<100,'Stream cap
 throw new AppError(404,'API endpoint not found')}
 if(req.method==='GET'||req.method==='HEAD'){
   const metadata=path.match(/^\/m\/([a-zA-Z0-9_-]{43})$/);
-  if(metadata&&lab){
+  if(metadata){
     const row=store.db.prepare('SELECT json FROM mint_metadata WHERE digest=?').get(metadata[1]);
     assert(row,'Metadata not found',404);
     res.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'public,max-age=31536000,immutable'});

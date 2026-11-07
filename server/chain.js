@@ -33,9 +33,6 @@ export function createChain(store,env=process.env){
  store.db.exec(`CREATE TABLE IF NOT EXISTS chain_launches(launch_id TEXT PRIMARY KEY REFERENCES launches(id),mint TEXT UNIQUE NOT NULL,pool TEXT NOT NULL,serialized_tx TEXT NOT NULL,message TEXT NOT NULL,expires INTEGER NOT NULL,status TEXT NOT NULL,signature TEXT,created_at TEXT NOT NULL);`);
  if(!store.db.prepare('PRAGMA table_info(chain_launches)').all().some(c=>c.name==='network'))store.db.exec("ALTER TABLE chain_launches ADD COLUMN network TEXT NOT NULL DEFAULT 'devnet'");
  if(!store.db.prepare('PRAGMA table_info(chain_launches)').all().some(c=>c.name==='created_slot'))store.db.exec('ALTER TABLE chain_launches ADD COLUMN created_slot INTEGER');
- store.db.exec(`CREATE TABLE IF NOT EXISTS mint_metadata(digest TEXT PRIMARY KEY,json TEXT NOT NULL);
- CREATE TRIGGER IF NOT EXISTS mint_metadata_no_update BEFORE UPDATE ON mint_metadata BEGIN SELECT RAISE(ABORT,'Immutable mint metadata'); END;
- CREATE TRIGGER IF NOT EXISTS mint_metadata_no_delete BEFORE DELETE ON mint_metadata BEGIN SELECT RAISE(ABORT,'Immutable mint metadata'); END;`);
  const program=network.programs.LAUNCHPAD_PROGRAM;
  async function verify(){
   assert(!missing.length,'Missing deployment configuration: '+missing.join(', '),503);
