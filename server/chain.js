@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto';
-import { Connection, PublicKey, Keypair, VersionedTransaction } from '@solana/web3.js';
-import { Raydium, PlatformConfig, LaunchpadConfig, LaunchpadPool, TxVersion, getPdaLaunchpadPoolId, getPdaPlatformId } from '@raydium-io/raydium-sdk-v2';
+import { Connection, PublicKey, Keypair, VersionedTransaction, TransactionMessage, ComputeBudgetProgram } from '@solana/web3.js';
+import { initializeV2, Curve, getPdaLaunchpadAuth, getPdaLaunchpadVaultId, getPdaMetadataKey, buyExactInInstruction, getPdaCreatorVault, getPdaPlatformVault, CpmmCreatorFeeOn, PlatformConfig, LaunchpadConfig, LaunchpadPool, getPdaLaunchpadPoolId, getPdaPlatformId } from '@raydium-io/raydium-sdk-v2';
 import BN from 'bn.js';
+import {Metadata} from '@metaplex-foundation/mpl-token-metadata';
+import {getAssociatedTokenAddressSync,createAssociatedTokenAccountIdempotentInstruction} from '@solana/spl-token';
 import { assert, AppError } from './domain.js';
 import {networkConfig,verifyGenesis,verifyPreparationNetwork} from './network.js';
 export const DEVNET_GENESIS='EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG';
@@ -31,6 +33,9 @@ export function createChain(store,env=process.env){
  store.db.exec(`CREATE TABLE IF NOT EXISTS chain_launches(launch_id TEXT PRIMARY KEY REFERENCES launches(id),mint TEXT UNIQUE NOT NULL,pool TEXT NOT NULL,serialized_tx TEXT NOT NULL,message TEXT NOT NULL,expires INTEGER NOT NULL,status TEXT NOT NULL,signature TEXT,created_at TEXT NOT NULL);`);
  if(!store.db.prepare('PRAGMA table_info(chain_launches)').all().some(c=>c.name==='network'))store.db.exec("ALTER TABLE chain_launches ADD COLUMN network TEXT NOT NULL DEFAULT 'devnet'");
  if(!store.db.prepare('PRAGMA table_info(chain_launches)').all().some(c=>c.name==='created_slot'))store.db.exec('ALTER TABLE chain_launches ADD COLUMN created_slot INTEGER');
+ store.db.exec(`CREATE TABLE IF NOT EXISTS mint_metadata(digest TEXT PRIMARY KEY,json TEXT NOT NULL);
+ CREATE TRIGGER IF NOT EXISTS mint_metadata_no_update BEFORE UPDATE ON mint_metadata BEGIN SELECT RAISE(ABORT,'Immutable mint metadata'); END;
+ CREATE TRIGGER IF NOT EXISTS mint_metadata_no_delete BEFORE DELETE ON mint_metadata BEGIN SELECT RAISE(ABORT,'Immutable mint metadata'); END;`);
  const program=network.programs.LAUNCHPAD_PROGRAM;
  async function verify(){
   assert(!missing.length,'Missing deployment configuration: '+missing.join(', '),503);
@@ -63,23 +68,59 @@ export function createChain(store,env=process.env){
     assert(old.created_slot && valid.context.slot>=old.created_slot,'Awaiting finalized preparation slot',409);
     store.db.prepare('DELETE FROM chain_launches WHERE launch_id=? AND mint=? AND expires=?').run(item.id,old.mint,old.expires);
   }else if(old){verifyPreparationNetwork(old,network);assert(old.status==='prepared'&&old.expires>Date.now(),'This launch already has a preparation; confirm it before retrying. Expired preparations require reconciliation.',409);return {...publicRow(old),transaction:old.serialized_tx}}
-  const {rpc,platformId,configId,config,quote}=await verify();
+  const {rpc,platform,platformId,configId,config,quote}=await verify();
   assert(/^\d{1,18}$/.test(env.LAUNCH_RAISE_USDC_UNITS),'Invalid fundraising target',503);
   const target=new BN(env.LAUNCH_RAISE_USDC_UNITS);assert(target.gte(config.minFundRaisingB)&&target.gt(new BN(0)),'Fundraising target below protocol minimum',503);
   const supply=new BN(item.supplyUnits),sell=supply.muln(80).divn(100);
   assert(supply.gte(config.minSupplyA),'Supply below protocol minimum');
   const owner=new PublicKey(item.owner),mint=Keypair.generate();
-  const sdk=await Raydium.load({connection:rpc,owner,cluster:network.cluster,disableLoadToken:true,disableFeatureCheck:true,blockhashCommitment:'confirmed'});
-  const built=await sdk.launchpad.createLaunchpad({programId:program,mintA:mint.publicKey,name:item.name,symbol:item.ticker,uri:`${origin}/api/launches/${item.id}/metadata`,decimals:6,mintBDecimals:6,mintBProgram:TOKEN_PROGRAM,platformId,configId,configInfo:config,migrateType:'cpmm',txVersion:TxVersion.V0,buyAmount:new BN(0),createOnly:true,extraSigners:[mint],supply,totalSellA:sell,totalFundRaisingB:target,totalLockedAmount:new BN(0),cliffPeriod:new BN(0),unlockPeriod:new BN(0),token2022:false});
-  assert(built.transactions.length===1,'Builder requires multiple transactions; sequential execution not enabled',503);
-  const transaction=built.transactions[0];const recent=await rpc.getLatestBlockhashAndContext('confirmed');transaction.message.recentBlockhash=recent.value.blockhash;transaction.sign([mint]);
-  const simulation=await rpc.simulateTransaction(transaction,{sigVerify:false,commitment:'confirmed'});
+  const buy=new BN(item.devBuyUnits||'0');
+  const tokenPage=origin+'/token/'+mint.publicKey.toBase58();
+  const metadata=JSON.stringify({name:item.name,symbol:item.ticker,description:item.desc,image:origin+'/api/launches/'+item.id+'/image',external_url:item.website||tokenPage,extensions:{website:item.website||tokenPage,twitter:item.twitter},properties:{mint:mint.publicKey.toBase58(),tokenPage,profileHash:item.profileHash,quoteMint:quote.toBase58()}});
+  const digest=createHash('sha256').update(metadata).digest('base64url');
+  const poolKey=getPdaLaunchpadPoolId(program,mint.publicKey,quote).publicKey;
+  const auth=getPdaLaunchpadAuth(program).publicKey;
+  const vaultA=getPdaLaunchpadVaultId(program,poolKey,mint.publicKey).publicKey;
+  const vaultB=getPdaLaunchpadVaultId(program,poolKey,quote).publicKey;
+  const zero=new BN(0);
+  const instructions=[initializeV2(program,owner,owner,configId,platformId,auth,poolKey,mint.publicKey,quote,vaultA,vaultB,
+    getPdaMetadataKey(mint.publicKey).publicKey,TOKEN_PROGRAM,6,item.name,item.ticker,origin+'/m/'+digest,
+    {type:'ConstantCurve',totalSellA:sell,migrateType:'cpmm',supply,totalFundRaisingB:target},zero,zero,zero,CpmmCreatorFeeOn.OnlyTokenB)];
+  const recent=await rpc.getLatestBlockhashAndContext('confirmed');
+  const compile=()=>new VersionedTransaction(new TransactionMessage({payerKey:owner,recentBlockhash:recent.value.blockhash,instructions}).compileToV0Message());
+  let transaction=compile();
+  if(!buy.isZero()){
+    const ownerQuote=getAssociatedTokenAddressSync(quote,owner),ownerTokens=getAssociatedTokenAddressSync(mint.publicKey,owner);
+    const balance=await rpc.getAccountInfo(ownerQuote);
+    assert(balance?.owner.equals(TOKEN_PROGRAM)&&balance.data.length>=72&&balance.data.readBigUInt64LE(64)>=BigInt(buy.toString()),'Insufficient Circle USDC for the developer buy',422);
+    const init=await rpc.simulateTransaction(transaction,{sigVerify:false,commitment:'confirmed',accounts:{encoding:'base64',addresses:[poolKey.toBase58()]}});
+    const account=init.value.accounts?.[0];
+    assert(!init.value.err&&account,'Launch simulation failed; check SOL for creation costs',422);
+    const poolInfo=decodeAccount({owner:new PublicKey(account.owner),data:Buffer.from(account.data[0],'base64')},LaunchpadPool,'PoolState',program);
+    const out=Curve.buyExactIn({poolInfo,amountB:buy,protocolFeeRate:config.tradeFeeRate,platformFeeRate:platform.feeRate,curveType:config.curveType,shareFeeRate:zero,creatorFeeRate:platform.creatorFeeRate,slot:init.context.slot});
+    assert(out.amountB.eq(buy),'Developer buy exceeds the available launch curve',422);
+    const minimum=out.amountA.amount.muln(9950).divn(10000);
+    assert(minimum.gtn(0),'Developer buy too small',422);
+    instructions.unshift(ComputeBudgetProgram.setComputeUnitLimit({units:650000}));
+    instructions.push(createAssociatedTokenAccountIdempotentInstruction(owner,ownerTokens,owner,mint.publicKey),
+      buyExactInInstruction(program,owner,auth,configId,platformId,poolKey,ownerTokens,ownerQuote,vaultA,vaultB,mint.publicKey,quote,TOKEN_PROGRAM,TOKEN_PROGRAM,
+        getPdaPlatformVault(program,platformId,quote).publicKey,getPdaCreatorVault(program,owner,quote).publicKey,buy,minimum,zero));
+    transaction=compile();
+  }
+  transaction.sign([mint]);
+  assert(transaction.serialize().length<=1232,'Launch transaction exceeds the network size limit',422);
+  const simulation=await rpc.simulateTransaction(transaction,{sigVerify:false,commitment:'confirmed',accounts:{encoding:'base64',addresses:[getPdaMetadataKey(mint.publicKey).publicKey.toBase58()]}});
   assert(!simulation.value.err,'Launch simulation failed; check SOL balance and launch configuration',422);
+  const meta=simulation.value.accounts?.[0];
+  assert(meta?.owner==='metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s','Simulated metadata account mismatch',422);
+  const [locked]=Metadata.deserialize(Buffer.from(meta.data[0],'base64'));
+  assert(!locked.isMutable&&locked.mint.equals(mint.publicKey)&&locked.data.uri.replace(/\0+$/,'')===origin+'/m/'+digest,'Immutable metadata verification failed',422);
   const serialized=Buffer.from(transaction.serialize()).toString('base64'),message=Buffer.from(transaction.message.serialize()).toString('base64');
   const pool=getPdaLaunchpadPoolId(program,mint.publicKey,quote).publicKey.toBase58();
   const expires=Date.now()+60000;
+  store.db.prepare('INSERT OR IGNORE INTO mint_metadata VALUES(?,?)').run(digest,metadata);
   store.db.prepare('INSERT INTO chain_launches(launch_id,mint,pool,serialized_tx,message,expires,status,signature,created_at,network,created_slot) VALUES(?,?,?,?,?,?,?,?,?,?,?)').run(item.id,mint.publicKey.toBase58(),pool,serialized,message,expires,'prepared',null,new Date().toISOString(),network.name,recent.context.slot);
-  return {network:network.name,mint:mint.publicKey.toBase58(),pool,transaction:serialized,expires,status:'prepared',initialBuyUnits:'0',seedTransferred:false};
+  return {network:network.name,mint:mint.publicKey.toBase58(),pool,transaction:serialized,expires,status:'prepared',initialBuyUnits:buy.toString(),seedTransferred:false};
  },
  async submit(item,serialized){
   assert(enabled(),'Token minting disabled',503);await verify();

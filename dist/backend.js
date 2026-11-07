@@ -44,12 +44,14 @@ function showLaunchLabForm() {
       <div class="form-grid"><label class="field">Name<input name="name" maxlength="32" required></label>
         <label class="field">Ticker<input name="ticker" maxlength="10" pattern="[A-Za-z0-9]{2,10}" required></label></div>
       <label class="field">Description<textarea name="desc" maxlength="160" required></textarea></label>
+      <label class="field">Developer buy · USDC (optional)<input name="devBuyUsdc" inputmode="decimal" placeholder="0" pattern="[0-9]{1,11}([.][0-9]{1,6})?"></label>
+      <p class="form-help">Buy from the launch curve with your wallet. Leave blank to launch without buying.</p>
       <details><summary>Add links (optional)</summary>
         <label class="field">X / Twitter<input type="url" name="twitter" placeholder="https://x.com/"></label>
         <label class="field">Website<input type="url" name="website" placeholder="https://"></label></details>
       </fieldset>
       <p class="form-help">USDC pair · 1.25% platform fee plus Raydium fees. SOL covers creation costs.</p>
-      <p class="form-help">Your token details become public when you launch.</p>
+      <p class="form-help">Your website and social links are pinned to this mint at launch.</p>
       <button class="pixel-mint-button primary full" type="submit">Launch token</button>
       <p role="status" aria-live="polite"></p><a class="quick-resume" hidden>Open saved token</a>
     </form></div>`;
@@ -90,7 +92,7 @@ function showLaunchLabForm() {
         if (!apiState.session?.wallet) throw Error('Connect a wallet to launch.');
       }
       const owner = apiState.session.wallet;
-      const values = Object.fromEntries(['name','ticker','desc','twitter','website'].map(k=>[k,String(data.get(k)||'').trim()]));
+      const values = Object.fromEntries(['name','ticker','desc','twitter','website','devBuyUsdc'].map(k=>[k,String(data.get(k)||'').trim()]));
       values.ticker = values.ticker.toUpperCase(); values.pfp = await imageRead;
       if (!values.pfp) throw Error('Choose your token image again.');
       const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([owner,values])));
@@ -122,7 +124,7 @@ function showLaunchLabForm() {
 }
 function launchLabPanel(t,panel){
   const target=Number(apiState.config.raiseUnits)/1e6;
-  panel.innerHTML='<h3>Launch on Raydium</h3><p>Circle USDC · 80% of supply on the curve · '+esc(target.toLocaleString())+' USDC graduation target. Initial developer buy: zero. The curve platform fee is 1.25% plus Raydium fees. Automatic reinvestment is pending.</p><button class="pixel-mint-button">Review launch in wallet</button><p role="status"></p>';
+  panel.innerHTML='<h3>Launch on Raydium</h3><p>Circle USDC · 80% of supply on the curve · '+esc(target.toLocaleString())+' USDC graduation target. Developer buy: '+esc(String(Number(t.devBuyUnits||0)/1e6))+' USDC. The curve platform fee is 1.25% plus Raydium fees. Automatic reinvestment is pending.</p><button class="pixel-mint-button">Review launch in wallet</button><p role="status"></p>';
   const button=panel.querySelector('button'),status=panel.querySelector('[role=status]');
   const post=(action,data={})=>api('/launches/'+t.id+'/'+action,{method:'POST',body:JSON.stringify(data)});
   async function confirm(){
@@ -185,12 +187,18 @@ renderPage=function(t){clearTimeout(marketTimer);launchWithTransactions(t);if(!a
  $('.chart-panel').innerHTML='<div class="empty">'+(t.status==='live'?'Loading finalized pool observations…':'Market observations appear after the USDC pool is finalized.')+'</div>';activity('trades');
  if(isLaunchLab()){
    $('.liquidity-widget').textContent='1.25% curve platform fee. Automated buybacks and liquidity deposits are pending.';
-   $('.chart-panel').textContent='LaunchLab price history is not indexed yet.';
-   return;
+
  }
  if(t.status!=='live')return;
  const update=async()=>{if(location.hash!=='#token/'+t.id)return;try{const m=await api(`/launches/${t.id}/candles`);if(location.hash!=='#token/'+t.id)return;if(!m.live)throw Error(m.reason);$('#pagePrice').textContent=m.price.toPrecision(6);$('#liveCap').textContent=fmt(m.marketCapUsdc);$('#liveLiquidity').textContent=fmt(m.usdcLiquidity);
- const candles=m.items.slice(-80),low=Math.min(...candles.map(c=>c.low)),high=Math.max(...candles.map(c=>c.high)),range=Math.max(high-low,high*.005),y=p=>180-(p-low)/range*150,w=600/Math.max(candles.length,1);
- $('.chart-panel').innerHTML=`<div class="chart-top"><span class="chart-brand">BLUEMINT CHARTS</span><span class="chart-badge">FINALIZED RPC</span></div><svg viewBox="0 0 640 210" role="img" aria-label="USDC pool price observations"><path d="M20 30H620M20 80H620M20 130H620M20 180H620" stroke="#233a59"/>${candles.map((c,i)=>{const x=20+i*w+w/2,color=c.close>=c.open?'#78adff':'#dd8da7';return `<path d="M${x} ${y(c.high)}V${y(c.low)}" stroke="${color}"/><rect x="${x-Math.min(w*.3,4)}" y="${Math.min(y(c.open),y(c.close))}" width="${Math.min(w*.6,8)}" height="${Math.max(1,Math.abs(y(c.open)-y(c.close)))}" fill="${color}"/>`}).join('')}</svg><div class="chart-caption"><span>${esc(m.chartLabel)}</span><span>Slot ${m.slot}</span></div><p class="small-note">Observed ${new Date(m.observedAt*1000).toLocaleTimeString()}. Gaps represent missing observations; historical trades are not fabricated.</p>`;
+ const candles=m.items.slice(-80),lo=Math.min(...candles.map(c=>c.low)),hi=Math.max(...candles.map(c=>c.high));
+ const pad=Math.max((hi-lo)*.12,hi*.0005),bottom=lo-pad,top=hi+pad,y=p=>166-(p-bottom)/(top-bottom)*146;
+ const end=candles.at(-1).time,start=Math.min(candles[0].time,end-9*60),x=time=>16+(time-start)/(end-start)*486;
+ const width=Math.min(7,486*60/(end-start)*.68),clock=time=>new Date(time*1000).toISOString().slice(11,16);
+ $('.chart-panel').innerHTML=`<div class="chart-top"><span class="chart-brand">BLUEMINT CHARTS</span><span class="chart-badge">USDC · 1m</span></div><svg viewBox="0 0 620 200" role="img" aria-label="One-minute USDC candles from finalized pool observations">
+ ${[top,(top+bottom)/2,bottom].map(p=>`<path d="M12 ${y(p)}H516" stroke="#243851"/><text x="526" y="${y(p)+3}" fill="#a5bddb" font-size="10">${p.toPrecision(5)}</text>`).join('')}
+ <path d="M12 ${y(m.price)}H516" stroke="#5073a0" stroke-dasharray="3 5"/>
+ ${candles.map(c=>{const cx=x(c.time),color=c.close>=c.open?'#78adff':'#dd8da7';return `<g><title>${clock(c.time)} UTC · O ${c.open.toPrecision(5)} · H ${c.high.toPrecision(5)} · L ${c.low.toPrecision(5)} · C ${c.close.toPrecision(5)}</title><path d="M${cx} ${y(c.high)}V${y(c.low)}" stroke="${color}"/><rect x="${cx-width/2}" y="${Math.min(y(c.open),y(c.close))}" width="${width}" height="${Math.max(2,Math.abs(y(c.open)-y(c.close)))}" fill="${color}"/></g>`}).join('')}
+ <g fill="#93abc9" font-size="10"><text x="12" y="190">${clock(start)}</text><text x="470" y="190">${clock(end)} UTC</text></g></svg><div class="chart-caption"><span>${esc(m.chartLabel)}</span><span>Slot ${m.slot}</span></div>`;
  }catch(e){if(location.hash==='#token/'+t.id)$('.chart-panel').innerHTML=`<div class="empty">Live data unavailable: ${esc(e.message)}</div>`}if(location.hash==='#token/'+t.id)marketTimer=setTimeout(update,15000)};update();
 };
