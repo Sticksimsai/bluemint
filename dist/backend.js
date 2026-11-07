@@ -132,11 +132,11 @@ function showLaunchLabForm() {
   };
 }
 function launchLabPanel(t,panel){
+  if(isPump()&&t.protocol!=='pump'){panel.innerHTML=t.status==='live'?'<h3>Legacy USDC market</h3><p>This token keeps its original Raydium LaunchLab pool and fee rules. Its mint and metadata are unchanged.</p><a href="/fees/legacy">Legacy USDC claims</a>':'<h3>Legacy saved profile</h3><p>New launches now use COINx on Pump.</p><a class="pixel-mint-button" href="/launch">Create a COINx launch</a>';return}
   const target=Number(apiState.config.raiseUnits)/1e6;
   panel.innerHTML='<h3>Launch on Raydium</h3><p>Circle USDC · 80% of supply on the curve · '+esc(target.toLocaleString())+' USDC graduation target. Developer buy: '+esc(String(Number(t.devBuyUnits||0)/1e6))+' USDC. The curve platform fee is 1.25% plus Raydium fees. '+(apiState.config.autoBuybacks?'Reinvestment requires graduation and an approved fee allocation.':'Automatic reinvestment is pending.')+'</p><button class="pixel-mint-button">Review launch in wallet</button><p role="status"></p>';
   if(t.protocol==='pump')panel.innerHTML='<h3>Launch on Pump</h3><p>COINx quote · optional developer buy '+esc(String(Number(t.devBuyQuoteUnits||0)/1e8))+' COINx. Pump fees apply. Creator fees belong to your launch wallet.</p><button class="pixel-mint-button">Launch token</button><p role="status"></p>';
   const button=panel.querySelector('button'),status=panel.querySelector('[role=status]');
-  if(isPump()&&t.protocol!=='pump'&&t.status!=='live'){button.disabled=true;status.innerHTML='Legacy USDC draft. <a href="/launch">Create a new COINx launch</a>';return}
   const post=(action,data={})=>api('/launches/'+t.id+'/'+action,{method:'POST',body:JSON.stringify(data)});
   async function confirm(){
     const result=await post('confirm');
