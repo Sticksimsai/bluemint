@@ -16,6 +16,110 @@ const originalCreatePage=showCreate;showCreate=function(){originalCreatePage();c
 (async()=>{try{const response=await fetch('/api/config');if(!response.ok)throw Error('Launch service unavailable');const config=await response.json();if(config.apiVersion!==1)throw Error('Launch service unavailable');apiState.enabled=true;apiState.config=config;apiState.session=await api('/auth/me');walletLabel();$('.notice').innerHTML=`<span>SOLANA MAINNET</span> USDC launch registry · Wallet approvals required`;await loadLaunches();await loadWatchlist();route();const stream=new EventSource('/api/events');stream.addEventListener('refresh',async()=>{window.dispatchEvent(new Event('bluemint:refresh'));try{await loadLaunches();if(location.hash==='#mint')showServerMint()}catch{}});document.addEventListener('click',e=>{const star=e.target.closest('[data-save]');if(star&&apiState.session?.wallet){const id=Number(star.dataset.save);setTimeout(()=>api('/watchlist',{method:'POST',body:JSON.stringify({launchId:String(id),saved:saved.includes(id)})}).catch(err=>toast(err.message)),0)}})}catch(e){if(apiState.enabled){$('.notice').textContent='Backend unavailable: '+e.message;tokens=[];render()}else {$('.notice').textContent='Launch service unavailable. Please retry shortly.';tokens=[];render()}}})();
 
 function isLaunchLab(){return apiState.config?.mode==='launchlab'}
+async function signLaunchLab(profile, message) {
+  const post = (action, body = {}) => api('/launches/' + profile.id + '/' + action,
+    {method:'POST', body:JSON.stringify(body)});
+  message('Preparing your launch…');
+  const prepared = await post('prepare');
+  const provider = window.phantom?.solana || window.solana || window.solflare;
+  if (!provider?.publicKey) await provider?.connect();
+  message('Approve the launch in your wallet.');
+  const signed = await BlueMintWallet.signPrepared(prepared.transaction, profile.owner);
+  message('Submitting your transaction…');
+  return post('submit', {transaction:signed});
+}
+
+function showLaunchLabForm() {
+  if (chartObserver) { chartObserver.disconnect(); chartObserver = null; }
+  homeMain.hidden = true;
+  detailMain.hidden = false;
+  document.title = 'Launch a token — BlueMint';
+  detailMain.innerHTML = `<div class="quick-launch">
+    <a class="token-breadcrumb" href="#">← Discover</a>
+    <div class="create-heading"><h1>Launch a token</h1></div>
+    <form class="create-form" id="createForm">
+      <fieldset><label class="pfp-upload" for="quickPfp"><span id="pfpPreview">＋</span>
+        <span><b>Token image</b><small>PNG, JPG or WebP · 256 KB max</small></span>
+        <input type="file" id="quickPfp" name="image" accept="image/png,image/jpeg,image/webp" required></label>
+      <div class="form-grid"><label class="field">Name<input name="name" maxlength="32" required></label>
+        <label class="field">Ticker<input name="ticker" maxlength="10" pattern="[A-Za-z0-9]{2,10}" required></label></div>
+      <label class="field">Description<textarea name="desc" maxlength="160" required></textarea></label>
+      <details><summary>Add links (optional)</summary>
+        <label class="field">X / Twitter<input type="url" name="twitter" placeholder="https://x.com/"></label>
+        <label class="field">Website<input type="url" name="website" placeholder="https://"></label></details>
+      </fieldset>
+      <p class="form-help">USDC pair · 1.25% platform fee plus Raydium fees. SOL covers creation costs.</p>
+      <p class="form-help">Your token details become public when you launch.</p>
+      <button class="pixel-mint-button primary full" type="submit">Launch token</button>
+      <p role="status" aria-live="polite"></p><a class="quick-resume" hidden>Open saved token</a>
+    </form></div>`;
+  const form = document.querySelector('#createForm');
+  const fieldset = form.querySelector('fieldset'), button = form.querySelector('button');
+  const status = form.querySelector('[role=status]'), resume = form.querySelector('.quick-resume');
+  const message = text => { status.textContent = text; };
+  const input = form.elements.image, preview = form.querySelector('#pfpPreview');
+  let imageRead, busy = false, saved, lastFingerprint, requestKey;
+  input.onchange = () => {
+    const file = input.files[0];
+    input.setCustomValidity(''); preview.textContent = '＋'; imageRead = null;
+    if (!file) return;
+    if (!['image/png','image/jpeg','image/webp'].includes(file.type) || file.size > 256*1024) {
+      input.setCustomValidity('Choose a PNG, JPG or WebP up to 256 KB.'); input.reportValidity(); return;
+    }
+    imageRead = new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (input.files[0] === file) {
+          const img = new Image(); img.alt = ''; img.src = reader.result; preview.replaceChildren(img);
+        }
+        resolve(reader.result);
+      };
+      reader.onerror = () => resolve(null); reader.readAsDataURL(file);
+    });
+  };
+  form.onsubmit = async event => {
+    event.preventDefault();
+    if (busy) return;
+    busy = true; button.disabled = true;
+    const data = new FormData(form);
+    fieldset.disabled = true;
+    try {
+      if (!apiState.session?.wallet) {
+        message('Connect your wallet and sign in to continue.');
+        await walletLogin();
+        if (!apiState.session?.wallet) throw Error('Connect a wallet to launch.');
+      }
+      const owner = apiState.session.wallet;
+      const values = Object.fromEntries(['name','ticker','desc','twitter','website'].map(k=>[k,String(data.get(k)||'').trim()]));
+      values.ticker = values.ticker.toUpperCase(); values.pfp = await imageRead;
+      if (!values.pfp) throw Error('Choose your token image again.');
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([owner,values])));
+      const fingerprint = Array.from(new Uint8Array(digest), n=>n.toString(16).padStart(2,'0')).join('');
+      if (lastFingerprint !== fingerprint) {
+        lastFingerprint = fingerprint; saved = null; resume.hidden = true;
+        const key = 'bm.launch.' + fingerprint;
+        requestKey = sessionStorage.getItem(key) || crypto.randomUUID(); sessionStorage.setItem(key,requestKey);
+      }
+      message('Preparing your launch…');
+      saved ??= await apiState.saveLaunch({...values,requestKey});
+      resume.href = '#token/' + saved.id;
+      const row = (await api('/launches/'+saved.id+'/chain')).launch;
+      if (!row || !['submitted','confirmed'].includes(row.status)) {
+        await signLaunchLab(saved,message);
+      }
+      if (!tokens.some(t=>t.id===saved.id)) tokens.unshift(saved);
+      message('Checking transaction confirmation…'); location.hash = 'token/'+saved.id;
+    } catch (e) {
+      message(e.message || 'Launch interrupted. Try again.');
+      if (saved) {
+        if (!tokens.some(t=>t.id===saved.id)) tokens.unshift(saved);
+        resume.hidden = false;
+      }
+    } finally {
+      busy = false; button.disabled = false; fieldset.disabled = false;
+    }
+  };
+}
 function launchLabPanel(t,panel){
   const target=Number(apiState.config.raiseUnits)/1e6;
   panel.innerHTML='<h3>Launch on Raydium</h3><p>Circle USDC · 80% of supply on the curve · '+esc(target.toLocaleString())+' USDC graduation target. Initial developer buy: zero. The curve platform fee is 1.25% plus Raydium fees. Automatic reinvestment is pending.</p><button class="pixel-mint-button">Review launch in wallet</button><p role="status"></p>';
@@ -41,10 +145,7 @@ function launchLabPanel(t,panel){
       if(apiState.session?.wallet!==t.owner)throw Error('Connect the wallet that saved this profile on the launch page.');
       const row=(await api('/launches/'+t.id+'/chain')).launch;
       if(row){try{await confirm();return}catch{/* Prepare reconciles expired submissions. */}}
-      status.textContent='Simulating launch…';
-      const prepared=await post('prepare');
-      const signed=await BlueMintWallet.signPrepared(prepared.transaction, t.owner);
-      const result=await post('submit',{transaction:signed});
+      const result=await signLaunchLab(t,text=>{status.textContent=text});
       status.textContent='Awaiting finality: '+result.signature;
       await wait();
     }catch(error){status.textContent=error.message;button.disabled=false}
@@ -54,7 +155,7 @@ function launchLabPanel(t,panel){
   }).catch(()=>{});
 }
 async function showChainStatus(){const box=$('#chainStatus');if(!box)return;try{const s=await api('/chain/status');if(!box.isConnected)return;if(isLaunchLab()){box.textContent=s.issue||(s.mintPreparationReady?"Raydium LaunchLab · USDC launches enabled":"LaunchLab configured · wallet launches disabled");return}box.innerHTML=`<b>Direct USDC pool · The Mint vault</b><div>Solana mainnet · 50% developer budget seeds liquidity</div><div>1.25% creator fee + Raydium trading fee · net receipts split 40% / 60%</div><p>${esc(s.issue|| (s.mintPreparationReady?'Launch transactions enabled.':'Launch transactions disabled.'))}</p>`}catch{box.textContent='Unable to verify launch readiness.'}}
-const createWithWallet=showCreate;showCreate=function(){createWithWallet();const status=document.createElement('div');status.id='chainStatus';status.className='integration-status';status.textContent='Checking vault deployment…';$('#createForm').append(status);if(apiState.enabled)showChainStatus();else status.textContent='Connecting to launch service…'};
+const createWithWallet=showCreate;showCreate=function(){if(!apiState.config){homeMain.hidden=true;detailMain.hidden=false;detailMain.innerHTML='<div class="empty">Connecting to launch service…</div>';return}if(isLaunchLab())return showLaunchLabForm();createWithWallet();const status=document.createElement('div');status.id='chainStatus';status.className='integration-status';status.textContent='Checking vault deployment…';$('#createForm').append(status);if(apiState.enabled)showChainStatus();else status.textContent='Connecting to launch service…'};
 const renderWithProfile=renderPage;renderPage=function(t){renderWithProfile(t);if(!apiState.enabled)return;const panel=document.createElement('section');panel.className='chain-actions';if(isLaunchLab()){detailMain.append(panel);launchLabPanel(t,panel);return}panel.innerHTML=`<span class="eyebrow blue">USDC LAUNCH</span><h3>Create your token’s market.</h3><p>Three wallet steps: mint your token, seed its Raydium pool, complete your developer buy. Half your USDC budget seeds liquidity; half buys tokens. SOL covers rent and network costs.</p><label class="field">Developer budget · USDC<input id="devBuyBudget" inputmode="decimal" placeholder="Enter USDC amount" autocomplete="off"></label><p>Liquidity is held by The Mint’s program. Raydium deducts its protocol share from creator fees before the 40% treasury / 60% liquidity split. No holder rewards.</p><button class="pixel-mint-button" id="prepareChain">Review next launch step</button><button class="text-btn" id="refundBuy">Refund unspent buy</button><p id="chainResult" role="status"></p>`;detailMain.append(panel);const output=panel.querySelector('#chainResult'),budget=panel.querySelector('#devBuyBudget');
  const prepareStep=async(action)=>{try{
   if(!apiState.session?.wallet){location.hash='create';toast('Connect your wallet on the launch page first.');return}
