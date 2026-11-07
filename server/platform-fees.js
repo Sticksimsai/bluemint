@@ -3,7 +3,7 @@ import {Connection,TransactionMessage,VersionedTransaction} from '@solana/web3.j
 import {TOKEN_PROGRAM_ID,createAssociatedTokenAccountIdempotentInstruction} from '@solana/spl-token';
 import {PlatformConfig,claimPlatformFeeFromVault,getPdaPlatformFeeVaultAuth} from '@raydium-io/raydium-sdk-v2';
 import bs58 from 'bs58';
-import {validateClaimRelay} from './claim-relay.js';
+import {validateClaimRelay,verifyClaimGuards} from './claim-relay.js';
 import {decodeAccount} from './chain.js';
 import {assert} from './domain.js';
 import {NETWORKS,verifyGenesis} from './network.js';
@@ -65,6 +65,7 @@ export function createPlatformFees(store,env,connection){
    const pending=await current();assert(!pending||pending.status!=='submitted','A claim is awaiting finality',409);
    await inspect();assert(await rpc.getBlockHeight('confirmed')<=row.last_height,'Claim expired. Prepare again.',409);
    const tx=validateClaimRelay(wire,row.message,wallet);
+   await verifyClaimGuards(rpc,tx);
    const sim=await rpc.simulateTransaction(tx,{sigVerify:true,commitment:'confirmed'});
    assert(!sim.value.err,'Signed claim simulation failed',422);
    const signature=bs58.encode(tx.signatures[0]);

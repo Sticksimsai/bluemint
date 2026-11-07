@@ -1,5 +1,15 @@
-import {VersionedMessage,VersionedTransaction,ComputeBudgetProgram} from '@solana/web3.js';
+import {VersionedMessage,VersionedTransaction,ComputeBudgetProgram,PublicKey} from '@solana/web3.js';
 import {assert,AppError} from './domain.js';
+
+export const LIGHTHOUSE=new PublicKey('L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95');
+const LOADER=new PublicKey('BPFLoaderUpgradeab1e11111111111111111111111');
+export async function verifyClaimGuards(rpc,tx){
+ if(!tx.message.compiledInstructions.some(ix=>tx.message.staticAccountKeys[ix.programIdIndex].equals(LIGHTHOUSE)))return;
+ const [dataKey]=PublicKey.findProgramAddressSync([LIGHTHOUSE.toBuffer()],LOADER);
+ const [program,data]=await rpc.getMultipleAccountsInfo([LIGHTHOUSE,dataKey],'finalized');
+ assert(program?.executable&&program.owner.equals(LOADER)&&program.data.readUInt32LE(0)===2&&program.data.subarray(4,36).equals(dataKey.toBuffer()),'Unexpected wallet guard program');
+ assert(data?.owner.equals(LOADER)&&data.data.length>45&&data.data.readUInt32LE(0)===3&&data.data[12]===0,'Wallet guard must be immutable');
+}
 
 // A wallet may add bounded compute-budget instructions when estimating a claim.
 // Every claim account, privilege, instruction and blockhash must still match.
@@ -14,8 +24,10 @@ export function validateClaimRelay(wire,expectedBase64,wallet){
  assert(message.staticAccountKeys[0].toString()===wallet&&expected.staticAccountKeys[0].toString()===wallet,'Wrong claim payer',403);
  assert(!message.addressTableLookups?.length&&!expected.addressTableLookups?.length,'Unexpected claim lookup tables');
  assert(message.recentBlockhash===expected.recentBlockhash,'Wallet changed the claim blockhash. Prepare the claim again.');
- const budget=ComputeBudgetProgram.programId.toString();
- const keys=m=>m.staticAccountKeys.map((k,i)=>({key:k.toString(),signer:m.isAccountSigner(i),writable:m.isAccountWritable(i)})).filter(k=>k.key!==budget).sort((a,b)=>a.key.localeCompare(b.key));
+ const budget=ComputeBudgetProgram.programId.toString(),guard=LIGHTHOUSE.toString();
+ const guardIndex=message.staticAccountKeys.findIndex(k=>k.equals(LIGHTHOUSE));
+ if(guardIndex>=0)assert(!message.isAccountSigner(guardIndex)&&!message.isAccountWritable(guardIndex),'Wallet guard program must be read-only');
+ const keys=m=>m.staticAccountKeys.map((k,i)=>({key:k.toString(),signer:m.isAccountSigner(i),writable:m.isAccountWritable(i)})).filter(k=>k.key!==budget&&k.key!==guard).sort((a,b)=>a.key.localeCompare(b.key));
  const actualKeys=keys(message),expectedKeys=keys(expected);
  const added=actualKeys.filter(k=>!expectedKeys.some(e=>e.key===k.key));
  const removed=expectedKeys.filter(k=>!actualKeys.some(e=>e.key===k.key));
@@ -32,10 +44,16 @@ export function validateClaimRelay(wire,expectedBase64,wallet){
   ].filter(Boolean).join(' · '));
  }
  function core(m,checkBudget){
-  let limit=1400000,price=0n;const seen=new Set(),instructions=[];
+  let limit=1400000,price=0n,guards=0;const seen=new Set(),instructions=[];
   for(const ix of m.compiledInstructions){
    const program=m.staticAccountKeys[ix.programIdIndex].toString(),data=Buffer.from(ix.data);
-   if(program===budget){
+   if(program===guard){
+    assert(checkBudget&&++guards<=8,'Unexpected wallet guard');
+    // Lighthouse Borsh enum 0/1 write or close memory. Permit only the
+    // account/clock assertions from the upstream instruction enum (2..16).
+    // Merkle CPI assertions and future unknown variants stay blocked.
+    assert(data.length>=2&&data[0]>=2&&data[0]<=16,'Unsupported Lighthouse instruction');
+   }else if(program===budget){
     assert(ix.accountKeyIndexes.length===0&&checkBudget,'Unexpected compute instruction');
     const kind=data[0];assert(!seen.has(kind),'Duplicate compute instruction');seen.add(kind);
     if(kind===2&&data.length===5){limit=data.readUInt32LE(1);assert(limit>0&&limit<=1400000,'Invalid compute limit')}
