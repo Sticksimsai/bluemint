@@ -83,7 +83,8 @@ export function startBuybacks(store,env){
     }
   }
   let active=false;
-  const run=async()=>{if(active)return;active=true;try{await tick()}catch{console.error('Buyback cycle deferred: verify deployment, RPC and keeper funding')}finally{active=false}};
+  const status={lastCheck:null,lastSuccessfulCheck:null};
+  const run=async()=>{if(active)return;active=true;try{status.lastCheck=new Date().toISOString();await tick();status.lastSuccessfulCheck=status.lastCheck}catch{console.error('Buyback cycle deferred: verify deployment, RPC and keeper funding')}finally{active=false}};
   const timer=setInterval(run,60000);timer.unref();run();
-  return ()=>clearInterval(timer);
+  const stop=()=>clearInterval(timer);stop.status=status;return stop;
 }

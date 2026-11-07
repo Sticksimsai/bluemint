@@ -124,7 +124,7 @@ function showLaunchLabForm() {
 }
 function launchLabPanel(t,panel){
   const target=Number(apiState.config.raiseUnits)/1e6;
-  panel.innerHTML='<h3>Launch on Raydium</h3><p>Circle USDC · 80% of supply on the curve · '+esc(target.toLocaleString())+' USDC graduation target. Developer buy: '+esc(String(Number(t.devBuyUnits||0)/1e6))+' USDC. The curve platform fee is 1.25% plus Raydium fees. Automatic reinvestment is pending.</p><button class="pixel-mint-button">Review launch in wallet</button><p role="status"></p>';
+  panel.innerHTML='<h3>Launch on Raydium</h3><p>Circle USDC · 80% of supply on the curve · '+esc(target.toLocaleString())+' USDC graduation target. Developer buy: '+esc(String(Number(t.devBuyUnits||0)/1e6))+' USDC. The curve platform fee is 1.25% plus Raydium fees. '+(apiState.config.autoBuybacks?'Reinvestment requires graduation and an approved fee allocation.':'Automatic reinvestment is pending.')+'</p><button class="pixel-mint-button">Review launch in wallet</button><p role="status"></p>';
   const button=panel.querySelector('button'),status=panel.querySelector('[role=status]');
   const post=(action,data={})=>api('/launches/'+t.id+'/'+action,{method:'POST',body:JSON.stringify(data)});
   async function confirm(){
@@ -177,20 +177,36 @@ const renderWithProfile=renderPage;renderPage=function(t){renderWithProfile(t);i
 };
 
 // Server-backed profiles never inherit synthetic prices, trades or candles.
-const previewCandle=candlePreview;candlePreview=function(t){return apiState.enabled?'<div class="draft-chart">'+(t.status==='live'?'USDC POOL':'NO MARKET YET')+'<span>'+(t.status==='live'?'Open token for verified price observations':'Chart appears after launch')+'</span></div>' : '<div class="draft-chart">Market data unavailable</div>'};
+candlePreview=function(t){
+  const bars=t.candles||[];
+  if(!bars.length)return '<div class="draft-chart">'+(t.status==='live'?'Loading pool observations…':'No market yet')+'</div>';
+  const low=Math.min(...bars.map(c=>c.low)),high=Math.max(...bars.map(c=>c.high));
+  const pad=Math.max((high-low)*.1,high*.0001),y=v=>64-(v-low+pad)/(high-low+2*pad)*58;
+  const last=bars.at(-1).time,first=Math.min(bars[0].time,last-9*60),x=v=>4+(v-first)/(last-first)*230,w=Math.min(5,13800/(last-first)*.7);
+  return `<svg viewBox="0 0 240 72" width="100%" height="80" role="img" aria-label="Verified one-minute USDC candlesticks"><path d="M0 19H240M0 38H240M0 57H240" stroke="#1b2d45"/>${bars.map(c=>{const cx=x(c.time),color=c.close>=c.open?'#78adff':'#dd8da7';return `<path d="M${cx} ${y(c.high)}V${y(c.low)}" stroke="${color}"/><rect x="${cx-w/2}" y="${Math.min(y(c.open),y(c.close))}" width="${w}" height="${Math.max(2,Math.abs(y(c.close)-y(c.open)))}" fill="${color}"/>`}).join('')}</svg>`;
+};
+async function refreshMarketCards(){
+  if(document.hidden||!apiState.enabled||!tokens.some(t=>t.status==='live'))return;
+  try{
+    const data=await api('/market-cards'),byId=new Map(data.items.map(c=>[String(c.id),c]));
+    for(const t of tokens){const card=byId.get(String(t.id));if(card)Object.assign(t,card,{id:t.id})}
+    if(!homeMain.hidden)render();
+  }catch{/* Keep the last finalized observation during transient network errors. */}
+}
+setInterval(refreshMarketCards,30000);
 const profileActivity=activity;activity=function(tab){if(!apiState.enabled)return profileActivity(tab);const el=$('#activityContent');if(!el)return;if(tab==='about'){el.innerHTML=`<p>${esc(selected.desc)}</p><p>${selected.mint?'Mint: '+esc(selected.mint):'Profile saved. Token not minted.'}</p>`;return}el.innerHTML=tab==='trades'?'<div class="empty">Individual swap history is not indexed. Pool price observations appear above.</div>':'<div class="empty">The Mint holds each token’s liquidity allocation in its own vault. <a href="#mint">View The Mint</a></div>'};
 const launchWithTransactions=renderPage;let marketTimer;
 renderPage=function(t){clearTimeout(marketTimer);launchWithTransactions(t);if(!apiState.enabled)return;if(chartObserver){chartObserver.disconnect();chartObserver=null}
- $('.status-chip').textContent=t.status==='live'?'USDC POOL':'LAUNCH DRAFT';$('.token-stat-row').innerHTML='<div><span>POOL PRICE · USDC</span><strong id="pagePrice">—</strong></div><div><span>MARKET CAP · USDC</span><strong id="liveCap">—</strong></div><div><span>USDC RESERVE</span><strong id="liveLiquidity">—</strong></div><div><span>24H VOLUME</span><strong>Not indexed</strong></div>';
+ $('.status-chip').textContent=t.status==='live'?'USDC POOL':'LAUNCH DRAFT';$('.token-stat-row').innerHTML='<div><span>POOL PRICE · USDC</span><strong id="pagePrice">—</strong></div><div><span>MARKET CAP · USDC</span><strong id="liveCap">—</strong></div><div><span>USDC RESERVE</span><strong id="liveLiquidity">—</strong></div><div><span>24H VOLUME</span><strong id="liveVolume">—</strong></div>';
  $('.trade-panel').innerHTML=`<h2>${t.status==='live'?'USDC market':'Awaiting launch'}</h2><p>${t.status==='live'?'This token has a finalized Raydium pool. Terminal discovery depends on each terminal’s indexing.':'Complete the launch steps below to create a market.'}</p>${t.mint?`<p>Mint</p><code style="overflow-wrap:anywhere">${esc(t.mint)}</code><p><a href="https://solscan.io/token/${esc(t.mint)}" target="_blank" rel="noopener noreferrer">View on Solscan</a></p>`:''}`;
  $('.liquidity-widget').innerHTML='<h3>The Mint</h3><p>Half the developer budget seeds liquidity. Trading fees received by the vault are split 40% to the launchpad and 60% to token liquidity.</p><a href="#mint">View The Mint</a>';
  $('.chart-panel').innerHTML='<div class="empty">'+(t.status==='live'?'Loading finalized pool observations…':'Market observations appear after the USDC pool is finalized.')+'</div>';activity('trades');
  if(isLaunchLab()){
-   $('.liquidity-widget').textContent='1.25% curve platform fee. Automated buybacks and liquidity deposits are pending.';
+   $('.liquidity-widget').textContent=apiState.config.autoBuybacks?'1.25% curve platform fee. Approved USDC allocations can be reinvested after graduation.':'1.25% curve platform fee. Automated reinvestment is pending.';
 
  }
  if(t.status!=='live')return;
- const update=async()=>{if(location.hash!=='#token/'+t.id)return;try{const m=await api(`/launches/${t.id}/candles`);if(location.hash!=='#token/'+t.id)return;if(!m.live)throw Error(m.reason);$('#pagePrice').textContent=m.price.toPrecision(6);$('#liveCap').textContent=fmt(m.marketCapUsdc);$('#liveLiquidity').textContent=m.usdcLiquidity<1?m.usdcLiquidity.toLocaleString(undefined,{maximumFractionDigits:6}):fmt(m.usdcLiquidity);
+ const update=async()=>{if(location.hash!=='#token/'+t.id)return;try{const m=await api(`/launches/${t.id}/candles`);if(location.hash!=='#token/'+t.id)return;if(!m.live)throw Error(m.reason);if($('#liveVolume'))$('#liveVolume').textContent=m.volume24h==null?'Indexing':(m.volumePartial?'≥ ':'')+cardUnits(m.volume24h);$('#pagePrice').textContent=m.price.toPrecision(6);$('#liveCap').textContent=fmt(m.marketCapUsdc);$('#liveLiquidity').textContent=m.usdcLiquidity<1?m.usdcLiquidity.toLocaleString(undefined,{maximumFractionDigits:6}):fmt(m.usdcLiquidity);
  const candles=m.items.slice(-80),lo=Math.min(...candles.map(c=>c.low)),hi=Math.max(...candles.map(c=>c.high));
  const pad=Math.max((hi-lo)*.12,hi*.0005),bottom=lo-pad,top=hi+pad,y=p=>166-(p-bottom)/(top-bottom)*146;
  const end=candles.at(-1).time,start=Math.min(candles[0].time,end-9*60),x=time=>16+(time-start)/(end-start)*486;

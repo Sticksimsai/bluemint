@@ -9,6 +9,7 @@ import {assert} from './domain.js';
 export function createMarkets(store,env=process.env){
  const rpc=new Connection(env.SOLANA_RPC_URL||'https://api.mainnet-beta.solana.com',{commitment:'finalized',fetch:(u,o)=>fetch(u,{...o,signal:AbortSignal.timeout(12000)})});
  store.db.exec('CREATE TABLE IF NOT EXISTS market_observations(launch_id TEXT NOT NULL REFERENCES launches(id),slot INTEGER NOT NULL,observed_at INTEGER NOT NULL,price REAL NOT NULL,quote_units TEXT NOT NULL,PRIMARY KEY(launch_id,slot))');
+ store.db.exec('CREATE TABLE IF NOT EXISTS market_cards(launch_id TEXT PRIMARY KEY, snapshot TEXT NOT NULL)');
  const pending=new Map();
  const fillHistory=createCurveHistory(store.db,rpc);
  async function read(item){
@@ -49,7 +50,21 @@ export function createMarkets(store,env=process.env){
   const observations=store.db.prepare(`SELECT observed_at,price,slot,1 AS kind,0 AS sequence FROM market_observations WHERE launch_id=? AND observed_at>?
     UNION ALL SELECT ts AS observed_at,price,slot,0 AS kind,sequence FROM curve_trade_prices WHERE launch_id=? AND ts>? ORDER BY observed_at,slot,kind,sequence`).all(item.id,observedAt-86400,item.id,observedAt-86400);
   const candles=new Map();for(const o of observations){const time=Math.floor(o.observed_at/60)*60;const c=candles.get(time);if(c){c.high=Math.max(c.high,o.price);c.low=Math.min(c.low,o.price);c.close=o.price}else candles.set(time,{time,open:o.price,high:o.price,low:o.price,close:o.price})}
-  return {live:true,source:'finalized_pool_reserve_observations',chartLabel:market+' · finalized observations · 1m',pool:pool.toBase58(),mint:item.mint,quoteMint:USDC.toBase58(),slot,observedAt,price,marketCapUsdc:price*Number(supply)/1e6,usdcLiquidity:Number(q)/1e6,volume24h:null,items:[...candles.values()]};
+  const vol=store.db.prepare('SELECT units FROM curve_volumes WHERE launch_id=? AND ts>=?').all(item.id,observedAt-86400);
+  const coverage=store.db.prepare('SELECT * FROM curve_coverage WHERE launch_id=?').get(item.id);
+  const complete=market==='LaunchLab curve'&&coverage?.complete===1&&observedAt-coverage.checked_at<120;
+  const volume24h=vol.length||complete?Number(vol.reduce((sum,r)=>sum+BigInt(r.units),0n))/1e6:null;
+  const result={live:true,source:'finalized_pool_reserve_observations',chartLabel:market+' · finalized observations · 1m',pool:pool.toBase58(),mint:item.mint,quoteMint:USDC.toBase58(),slot,observedAt,price,marketCapUsdc:price*Number(supply)/1e6,usdcLiquidity:Number(q)/1e6,volume24h,volumePartial:!complete,items:[...candles.values()]};
+  const card={id:item.id,marketDataAvailable:true,cap:result.marketCapUsdc,usdcLiquidity:result.usdcLiquidity,volume:volume24h,volumePartial:!complete,observedAt,candles:result.items.slice(-40)};
+  store.db.prepare('INSERT OR REPLACE INTO market_cards VALUES(?,?)').run(item.id,JSON.stringify(card));
+  return result;
  }
- return {async get(item){const current=pending.get(item.id);if(current&&current.until>Date.now())return current.promise;const promise=read(item);pending.set(item.id,{until:Date.now()+15000,promise});try{return await promise}catch(e){pending.delete(item.id);throw e}}};
+ return {cards(items){
+   const lookup=store.db.prepare('SELECT snapshot FROM market_cards WHERE launch_id=?');
+   return items.filter(t=>t.status==='live').flatMap(t=>{
+     const row=lookup.get(t.id);if(!row)return [];
+     const card=JSON.parse(row.snapshot);
+     return [{...card,mintedAt:store.db.prepare('SELECT confirmed_at FROM confirmed_mints WHERE launch_id=?').get(t.id)?.confirmed_at}];
+   });
+ },async get(item){const current=pending.get(item.id);if(current&&current.until>Date.now())return current.promise;const promise=read(item);pending.set(item.id,{until:Date.now()+15000,promise});try{return await promise}catch(e){pending.delete(item.id);throw e}}};
 }
