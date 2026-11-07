@@ -16,7 +16,21 @@ export function validateClaimRelay(wire,expectedBase64,wallet){
  assert(message.recentBlockhash===expected.recentBlockhash,'Wallet changed the claim blockhash. Prepare the claim again.');
  const budget=ComputeBudgetProgram.programId.toString();
  const keys=m=>m.staticAccountKeys.map((k,i)=>({key:k.toString(),signer:m.isAccountSigner(i),writable:m.isAccountWritable(i)})).filter(k=>k.key!==budget).sort((a,b)=>a.key.localeCompare(b.key));
- assert(JSON.stringify(keys(message))===JSON.stringify(keys(expected)),'Wallet changed claim accounts or permissions');
+ const actualKeys=keys(message),expectedKeys=keys(expected);
+ const added=actualKeys.filter(k=>!expectedKeys.some(e=>e.key===k.key));
+ const removed=expectedKeys.filter(k=>!actualKeys.some(e=>e.key===k.key));
+ const changed=actualKeys.filter(k=>{const e=expectedKeys.find(e=>e.key===k.key);return e&&(e.signer!==k.signer||e.writable!==k.writable)});
+ if(added.length||removed.length||changed.length){
+  const diff={added,removed,changed:changed.map(k=>({key:k.key,before:expectedKeys.find(e=>e.key===k.key),after:k})),
+    programs:message.compiledInstructions.map(ix=>message.staticAccountKeys[ix.programIdIndex].toString())};
+  console.warn('claim_wallet_message_difference',JSON.stringify(diff));
+  const describe=k=>k.key+' ('+(k.signer?'signer':'non-signer')+', '+(k.writable?'writable':'read-only')+')';
+  throw new AppError(400,'Claim blocked. '+[
+    added.length?'Added: '+added.map(describe).join(', '):'',
+    removed.length?'Removed: '+removed.map(describe).join(', '):'',
+    changed.length?'Changed: '+changed.map(describe).join(', '):''
+  ].filter(Boolean).join(' · '));
+ }
  function core(m,checkBudget){
   let limit=1400000,price=0n;const seen=new Set(),instructions=[];
   for(const ix of m.compiledInstructions){
