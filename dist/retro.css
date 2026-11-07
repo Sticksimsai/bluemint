@@ -1,0 +1,149 @@
+/* Compact retro board. BlueMint's palette and pixel type carry the identity. */
+:root{--bg:#080d15;--panel:#0c1421;--line:#22344f;--muted:#8294b0;--blue:#3678ff}
+html{scroll-padding-top:80px}
+body{background:#080d15!important;color:#eef4ff;font:15px/1.5 'Pixelify Sans',monospace!important}
+body header{height:66px;padding:0 28px;gap:36px;border-bottom:1px solid #22344f;background:#080d15}
+body header .brand{font:24px 'Pixelify Sans',monospace;letter-spacing:0}
+body .pixel-logo{width:27px;height:27px;image-rendering:pixelated}
+body header nav{gap:6px;flex:1;display:flex;align-items:center}
+body .header-right{margin:0;gap:16px}
+body .network{font-size:12px;color:#8294b0}
+body :is(button,a.primary,a.pixel-mint-button,a.outline-btn,a.text-btn,.nav-link){
+ clip-path:none!important;border-radius:0!important;box-shadow:none!important;text-shadow:none!important;
+ font-family:'Pixelify Sans',monospace!important;font-size:14px!important;line-height:1.3!important;
+ font-weight:400!important;letter-spacing:0!important;min-height:34px;padding:8px 12px!important;
+ border:1px solid transparent;transition:background-color .12s,border-color .12s}
+body :is(button,a.primary,a.pixel-mint-button) :is(span,b,strong,small){font-family:inherit!important}
+body :is(button.primary,button.pixel-mint-button,a.primary,a.pixel-mint-button){
+ background:#3678ff!important;border:1px solid #79a6ff!important;color:#fff;box-shadow:2px 2px 0 #173776!important;
+ min-height:36px;font-size:14px!important;padding:9px 16px!important}
+body :is(button.primary,button.pixel-mint-button,a.primary):hover{background:#4b88ff!important}
+body :is(button,a,input,select,textarea,summary):focus-visible{outline:2px solid #98bcff!important;outline-offset:3px;box-shadow:none!important}
+body button:disabled{opacity:.5;cursor:wait}
+body header :is(.nav,.nav-link){color:#8d9fbb;padding:7px 10px!important;background:transparent}
+body header :is(.nav.active,.nav:hover,.nav-link:hover){color:#fff;background:#11223b}
+body .notice{padding:8px 24px;min-height:0;font-size:12px;line-height:1.4;color:#7289aa;border:0;background:none;text-align:center}
+body .notice>span{color:#9ab9f5}
+body .notice button{display:none}
+body main{max-width:1140px;padding:0 24px;margin:0 auto}
+body .hero{display:block!important;min-height:0!important;margin:0;padding:25px 0 22px!important;text-align:center;background:none!important;border:0!important;clip-path:none!important;box-shadow:none!important}
+body .hero>div:first-child{padding:0!important;border:0!important}
+body .hero .eyebrow{font-size:11px;letter-spacing:1.2px;color:#7295c8}
+body .hero h1{font-family:var(--arcade),monospace!important;font-size:clamp(19px,3vw,27px)!important;line-height:1.6;letter-spacing:-.6px;margin:10px 0 7px!important}
+body .hero p{font-size:15px;color:#95a7bf;line-height:1.5;margin:0 auto 16px}
+body .hero-actions{display:flex;justify-content:center;gap:10px}
+body .hero-actions .primary{font-size:15px!important;min-height:40px;padding:10px 22px!important}
+body .hero-art,body .hero-bottom,body .hero-actions .text-btn{display:none!important}
+body .how-section,body .bottom-banner,body .conveyor-card{display:none!important}
+body .metrics{display:flex!important;justify-content:center;gap:24px;margin:0 0 26px!important;padding:9px 0!important;border-top:1px solid #1a2940!important;border-bottom:1px solid #1a2940!important;background:none!important}
+body .metrics>div{display:flex!important;align-items:baseline;gap:8px;border:0!important;background:none!important;clip-path:none!important;box-shadow:none!important;padding:0!important;margin:0;min-height:0}
+body .metrics>div>span{font-size:12px;color:#7e91ac}
+body .metrics strong{font:14px 'Pixelify Sans'!important;white-space:nowrap;color:#c4d8f9}
+body .metrics small{font-size:10px;color:#7293bf}
+body .metrics label,body .metrics .engine-card{display:none!important}
+body #markets{margin:0;padding:0 0 32px;border:0}
+body .section-top{display:flex;align-items:center;gap:20px;justify-content:space-between;margin-bottom:14px}
+body .section-top .eyebrow{display:none}
+body #marketTitle{font:18px 'Pixelify Sans',monospace;margin:0}
+body #marketTitle .count{font:12px 'Pixelify Sans';background:#122139;color:#8eacd3;border:0;padding:2px 6px;margin-left:8px}
+body .market-tools{display:flex;gap:8px;flex:1;justify-content:flex-end}
+body .search{background:#0a1220;border:1px solid #2b4164;box-shadow:none;border-radius:0;width:300px;max-width:100%;height:36px;padding:0 10px;display:flex;align-items:center;gap:8px}
+body .search input{font:14px 'Pixelify Sans'!important;min-width:0;background:transparent;border:0;color:#e8f0ff;width:100%;outline:none}
+body .search span,body .search kbd{color:#6481ac}
+body .search kbd{font-size:11px;border:1px solid #263b5b;padding:0 4px}
+body .market-tools select{height:36px;background:#0c1421;border:1px solid #2b4164;color:#b7c9e4;padding:0 10px;font:13px 'Pixelify Sans'}
+body .tabs{margin:0 0 16px;padding:0;border:0;gap:12px}
+body .tabs>div{gap:6px}
+body .tabs .tab{background:transparent;border:1px solid #233650!important;min-height:30px;padding:6px 11px!important;font-size:12px!important;color:#859cbd}
+body .tabs .tab.active{color:#c7dbff;background:#132b4e;border-color:#396cae!important}
+body .quote-label{font-size:11px;color:#6c85aa}
+body .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+body .token.pixel-market-card{position:relative;min-width:0;padding:0!important;margin:0;border:1px solid #253b5b!important;background:#0c1421!important;box-shadow:none!important;clip-path:none!important;border-radius:0;transform:none!important}
+body .token.pixel-market-card:before,body .token.pixel-market-card:after{display:none!important}
+body .token.pixel-market-card:hover{border-color:#5a91e5!important;background:#0e1a2c!important}
+body .pixel-card-inner{padding:14px!important;background:none!important;clip-path:none!important;box-shadow:none!important;border:0!important;display:block!important}
+body .token .token-top{display:flex;gap:10px;align-items:center;margin:0;padding:0;border:0;min-height:48px}
+body .token .avatar{width:48px;height:48px;min-width:48px;border:1px solid #3c5982;border-radius:0;box-shadow:none;background:#101e34;overflow:hidden;display:flex;align-items:center;justify-content:center}
+body .token .avatar img{width:100%;height:100%;object-fit:cover}
+body .token .token-top>div:nth-child(2){min-width:0;flex:1}
+body .token h3{font:17px/1.2 'Pixelify Sans'!important;margin:0 0 5px;color:#eff5ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:0}
+body .token .ticker{font:11px 'Pixelify Sans'!important;color:#7ca4e0;background:none;border:0;padding:0}
+body .token .star{align-self:flex-start;background:transparent;color:#7890b0;min-height:24px;min-width:24px;padding:2px!important;border:0!important;box-shadow:none!important;font-size:16px!important}
+body .token .star.saved{color:#8ab9ff}
+body .token-desc{font:13px/1.5 'Pixelify Sans'!important;color:#899bb5;margin:11px 0 9px!important;min-height:38px;height:38px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;padding:0;border:0}
+body .token-chart{border-top:1px solid #1d2e47;border-bottom:1px solid #1d2e47;padding:7px 0;margin-bottom:11px;height:73px;overflow:hidden}
+body .token-chart svg{display:block;width:100%;height:58px!important}
+body .token-chart .draft-chart{height:58px;min-height:0;background:none;border:0!important;font-size:11px;color:#6e85a8;display:flex;align-items:center;justify-content:center}
+body .token-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+body .token-stats>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+body .token-stats span{font-size:10px;line-height:1.3;color:#6f89ad;white-space:nowrap}
+body .token-stats b{font:14px/1.3 'Pixelify Sans'!important;color:#b8d2fc;overflow-wrap:anywhere}
+body .token-meta{display:flex;justify-content:space-between;gap:10px;margin-top:12px;font-size:10px;color:#6b81a2}
+body .token-meta .live{color:#8ab7fb}
+body .market-foot{border:0;padding:14px 0;color:#597395;font-size:10px}
+body .market-foot>span:last-child{display:none}
+body footer{border-top:1px solid #1c2c44;max-width:1140px;margin:0 auto;padding:20px 24px;gap:20px;font-size:12px;color:#637e9f;flex-wrap:wrap}
+body footer .brand{font-size:18px;color:#94b9ef}
+body footer .pixel-logo{width:20px;height:20px}
+body footer button,body footer .text-btn{padding:3px!important;min-height:24px!important;font-size:12px!important}
+body footer p{margin:0;flex:1}
+body #tokenPage{padding-top:22px}
+body .token-heading h1{font:clamp(24px,4vw,38px) 'Pixelify Sans',monospace!important}
+body .token-stat-row{gap:0;margin:20px 0;border:1px solid #223b5c}
+body .token-stat-row>div{padding:14px}
+body .token-stat-row strong{font:20px 'Pixelify Sans'!important}
+body :is(.trade-panel,.liquidity-widget,.chart-panel,.activity-panel,.create-form,.mint-growth,.mint-panel,.mint-split-panel,.mint-ledger,.docs-card,.docs-sidebar,.docs-status,.mint-vault-panel,.mint-stats>div){
+ border:1px solid #263c5c!important;border-radius:0!important;clip-path:none!important;box-shadow:none!important;background:#0c1421!important}
+body .chart-panel{padding:14px}
+body .chart-panel svg{width:100%;height:auto;min-height:220px}
+body :is(.chart-brand,.chart-badge,.eyebrow,.token-profile-links,.chain-actions){font-family:'Pixelify Sans',monospace!important}
+body .quick-launch{max-width:520px;margin:0 auto;padding:16px 0 40px}
+body .quick-launch .create-heading{margin-bottom:18px}
+body .quick-launch h1,body .create-heading h1{font:26px 'Pixelify Sans'!important;letter-spacing:0}
+body .quick-launch .create-form{padding:24px}
+body .field{font-size:13px;gap:6px}
+body .field :is(input,textarea),body .quick-launch input{border:1px solid #2b4164;background:#080f1a;color:#e7f0ff;border-radius:0;font:15px 'Pixelify Sans'!important}
+body .field input{height:40px;padding:10px}
+body .field textarea{min-height:76px;padding:10px}
+body .form-help{font-size:12px;color:#7691b4;line-height:1.55}
+body .quick-launch [role=status]{font-size:13px;overflow-wrap:anywhere}
+body .pfp-upload{padding:14px;min-height:80px;border:1px dashed #35517a;background:#0a1220;gap:12px}
+body .pfp-upload #pfpPreview{width:48px;height:48px}
+body :is(.chain-actions,.launch-wallet-panel){padding:18px;border:1px solid #263c5c;box-shadow:none}
+body .chain-actions h3{font:18px 'Pixelify Sans'}
+body .chain-actions p{font-size:13px}
+body .docs-shell{max-width:1040px;margin:30px auto;gap:28px;padding:0 24px}
+body .docs-content h1{font:30px 'Pixelify Sans'!important}
+body .docs-content h2{font:23px 'Pixelify Sans'!important}
+body .docs-content h3{font:18px 'Pixelify Sans'!important}
+body .docs-content p,body .docs-content li{font:15px/1.8 'Pixelify Sans'!important;color:#a1b1c8}
+body .docs-sidebar{padding:18px}
+body dialog{border:1px solid #4c7fc4;background:#0c1421;border-radius:0;box-shadow:0 20px 100px #0009}
+body .empty{font:14px/1.6 'Pixelify Sans';padding:28px 12px}
+@media(max-width:900px){
+ body .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ body header{padding:0 18px;gap:16px}body header nav{gap:0}
+ body .network{display:none}
+ body .metrics{gap:18px}
+}
+@media(max-width:600px){
+ body header{height:auto;min-height:60px;display:flex;flex-wrap:wrap;padding:12px 16px;gap:12px}
+ body header nav{order:3;flex-basis:100%;justify-content:center;border-top:1px solid #17273e;padding-top:8px}
+ body header .brand{font-size:22px}body .header-right{margin-left:auto}
+ body header .pixel-mint-button{padding:7px 10px!important;font-size:12px!important;min-height:32px}
+ body main{padding:0 16px}body .hero{padding:22px 0!important}
+ body .hero h1{font-size:14px!important}
+ body .metrics{gap:14px;flex-wrap:wrap;padding:10px 0!important}
+ body .metrics>div{gap:5px}body .metrics>div>span{font-size:10px}body .metrics strong{font-size:12px!important}
+ body .section-top{flex-wrap:wrap;gap:12px}
+ body .market-tools{flex-basis:100%;justify-content:space-between}
+ body .search{width:auto;flex:1}body .market-tools select{max-width:110px;font-size:12px}
+ body .grid{grid-template-columns:1fr}
+ body .tabs{align-items:center}.quote-label{font-size:9px}.quote-label .usdc{display:none}
+ body .tabs .tab{font-size:11px!important;padding:6px 8px!important}
+ body footer{padding:18px 16px;gap:12px}body footer p{display:none}
+ body .token-stat-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+ body .quick-launch .create-form{padding:18px}
+ body .docs-shell{padding:0 16px}
+}
+@media(prefers-reduced-motion:reduce){body *{scroll-behavior:auto!important;transition:none!important}}
