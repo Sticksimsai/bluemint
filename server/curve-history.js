@@ -9,7 +9,7 @@ export function curveTradePrices(tx,pool){
   const prices=[];
   if(!tx?.meta || tx.meta.err || !tx.blockTime)return prices;
   for(const group of tx.meta.innerInstructions||[])for(const ix of group.instructions){
-    if(!ix.programId.equals(PROGRAM)||!ix.accounts?.[0]?.equals(eventAuthority)||!ix.data)continue;
+    if(String(ix.programId)!==PROGRAM.toBase58()||String(ix.accounts?.[0])!==eventAuthority.toBase58()||!ix.data)continue;
     const d=Buffer.from(bs58.decode(ix.data));
     if(d.length<104||!d.subarray(0,16).equals(header)||!d.subarray(16,48).equals(pool.toBuffer()))continue;
     const base=d.readBigUInt64LE(56)-d.readBigUInt64LE(88);
@@ -31,7 +31,12 @@ export function createCurveHistory(db,rpc){
     const recent=await rpc.getSignaturesForAddress(pool,{limit:64},'finalized');
     const unknown=recent.filter(r=>!r.err&&r.blockTime>=cutoff&&!db.prepare('SELECT 1 FROM curve_history_tx WHERE launch_id=? AND signature=?').get(id,r.signature)).slice(0,4);
     for(const row of unknown){
-      const tx=await rpc.getParsedTransaction(row.signature,{commitment:'finalized',maxSupportedTransactionVersion:0});
+      // This installed web3.js validates only legacy/v0 responses. Read parsed v1
+      // instructions through JSON-RPC as well, including swaps from terminals.
+      const response=await fetch(rpc.rpcEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(10000),
+        body:JSON.stringify({jsonrpc:'2.0',id:1,method:'getTransaction',params:[row.signature,{commitment:'finalized',encoding:'jsonParsed',maxSupportedTransactionVersion:1}]})});
+      if(!response.ok)break;
+      const {result:tx,error}=await response.json();if(error)continue;
       if(!tx?.blockTime)continue;
       const prices=curveTradePrices(tx,pool);
       db.exec('BEGIN IMMEDIATE');
