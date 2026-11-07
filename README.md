@@ -36,7 +36,7 @@ Never commit wallet keys or RPC credentials. New Pump launches need no Memebase 
 - Recovery that reconciles the old blockhash and finalized curve before replacing an expired preparation.
 - Pump curve and canonical PumpSwap reserve readers, quote-aware token cards and one-minute charts. Curve-trade backfill is bounded and volume is marked partial. Finalized per-coin subscriptions index new curve and PumpSwap trades, with bounded HTTP backfill and explicit partial coverage.
 - Memebase pixel branding, responsive retro cards, a simplified launch form, clean page URLs and rewritten product docs.
-- Legacy BlueMint USDC markets and treasury claims remain accessible without changing their mints, pools, metadata or recipients.
+- Legacy BlueMint USDC launches are delisted from discovery, watchlists and the public mint feed. Their metadata, images, accounting records and treasury claims remain intact.
 
 ## Fees and liquidity
 
