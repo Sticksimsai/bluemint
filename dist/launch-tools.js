@@ -6,7 +6,7 @@
   if(kind==='twitter'&&/^@?[a-zA-Z0-9_]{1,15}$/.test(value))return 'https://x.com/'+value.replace(/^@/,'');
   return /^[a-z][a-z0-9+.-]*:/i.test(value)?value:'https://'+value;
  }
- function validate(values,decimals=8){
+ function validate(values,decimals=6){
   const errors={},name=String(values.name||'').trim(),ticker=String(values.ticker||'').trim(),desc=String(values.desc||'').trim();
   if(!name)errors.name='Enter a token name.';
   else if(new TextEncoder().encode(name).length>32)errors.name='Use a shorter name. The limit is 32 UTF-8 bytes.';
@@ -35,5 +35,5 @@
   }
   throw Error('This image could not be optimized. Try a smaller PNG, JPG or WebP.');
  }
- window.MemebaseLaunchTools={normalizeLink,validate,prepareImage,dataBytes,MAX_INPUT_BYTES,MAX_STORED_BYTES};
+ window.StabledLaunchTools={normalizeLink,validate,prepareImage,dataBytes,MAX_INPUT_BYTES,MAX_STORED_BYTES};
 })();

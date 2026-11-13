@@ -1,5 +1,8 @@
 # LaunchLab buybacks
 
+> **Legacy BlueMint record.** This describes the retired Raydium/USDC vault design. Stabled launches run on Pump with USDC quotes; see the README and `MIGRATION-STABLED.md`. Kept for existing claims and allocations.
+
+
 BlueMint stages a treasury-approved allocation of finalized USDC receipts, then a separate keeper can reinvest it after graduation. There is no initial developer buy in this flow. The treasury retains 40% (rounded down to the nearest USDC base unit). The remaining units go to the earning mint's vault. LP tokens stay in its program-owned associated token account.
 
 ## Release and deployment

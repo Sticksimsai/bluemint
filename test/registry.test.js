@@ -5,11 +5,11 @@ import {createStore} from '../server/store.js';
 import {createApp} from '../server/index.js';
 import {createMintFeed} from '../server/mint-feed.js';
 import {hash} from '../server/domain.js';
-import {COINX} from '../server/pump.js';
+import {USDC} from '../server/pump.js';
 
 test('retired launches disappear from every public listing without deleting metadata or claim records',async()=>{
  const store=createStore(':memory:'),wallet=Keypair.generate().publicKey.toString(),pfp='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
- function make(name,protocol){const row=store.create(wallet,{name,ticker:name,desc:'Test',pfp,website:'',twitter:'',...(protocol?{protocol,quoteMint:COINX}:{})},name);store.db.prepare("UPDATE launches SET status='live',mint=? WHERE id=?").run(Keypair.generate().publicKey.toString(),row.id);return store.get(row.id)}
+ function make(name,protocol){const row=store.create(wallet,{name,ticker:name,desc:'Test',pfp,website:'',twitter:'',...(protocol?{protocol,quoteMint:USDC}:{})},name);store.db.prepare("UPDATE launches SET status='live',mint=? WHERE id=?").run(Keypair.generate().publicKey.toString(),row.id);return store.get(row.id)}
  const active=make('NEW','pump'),old=Array.from({length:4},(_,i)=>make('OLD'+i));
  store.db.prepare("UPDATE launches SET created_at='2020-01-01' WHERE id=?").run(active.id);
  const feed=createMintFeed(store);for(const row of [active,...old])feed.record(row.id,row.mint);

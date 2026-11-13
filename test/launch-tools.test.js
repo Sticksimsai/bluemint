@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 const context={window:{},TextEncoder,URL};vm.runInNewContext(readFileSync(new URL('../dist/launch-tools.js',import.meta.url),'utf8'),context);
-const tools=context.window.MemebaseLaunchTools;
-const valid={name:'Pixel Cat',ticker:'CAT',desc:'A meme',twitter:'',website:'',devBuyQuote:'0.00000001'};
-test('launch form accepts eight-decimal COINx buys and rejects malformed or negative amounts',()=>{
+const tools=context.window.StabledLaunchTools;
+const valid={name:'Pixel Cat',ticker:'CAT',desc:'A meme',twitter:'',website:'',devBuyQuote:'0.000001'};
+test('launch form accepts six-decimal USDC buys and rejects malformed or negative amounts',()=>{
  assert.equal(Object.keys(tools.validate(valid)).length,0);
- for(const value of ['-1','1e2','NaN','1.000000001','1.2.3'])assert.ok(tools.validate({...valid,devBuyQuote:value}).devBuyQuote);
+ for(const value of ['-1','1e2','NaN','1.0000001','1.2.3'])assert.ok(tools.validate({...valid,devBuyQuote:value}).devBuyQuote);
  assert.equal(tools.validate({...valid,devBuyQuote:''}).devBuyQuote,undefined);
- assert.ok(tools.validate(valid,6).devBuyQuote);
+ assert.ok(tools.validate({...valid,devBuyQuote:'0.00000001'}).devBuyQuote);assert.equal(tools.validate({...valid,devBuyQuote:'0.00000001'},8).devBuyQuote,undefined);
 });
 test('name bytes and normalized links are checked before a wallet opens',()=>{
  assert.ok(tools.validate({...valid,name:'😀'.repeat(9)}).name);

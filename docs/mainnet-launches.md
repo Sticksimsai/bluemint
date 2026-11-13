@@ -1,5 +1,8 @@
 # Mainnet launch operations
 
+> **Legacy BlueMint record.** This describes the retired Raydium/USDC vault design. Stabled launches run on Pump with USDC quotes; see the README and `MIGRATION-STABLED.md`. Kept for existing claims and allocations.
+
+
 ## Current state
 
 The launch implementation uses direct Raydium CPMM pools, not LaunchLab bonding curves. The vault has passed local integration tests but is not deployed on mainnet. Render keeps `ENABLE_TOKEN_MINTING=false` and the keeper is disabled. No funds have moved.

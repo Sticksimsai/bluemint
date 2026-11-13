@@ -1,5 +1,8 @@
 # Vault validation — 6 November 2026
 
+> **Legacy BlueMint record.** This describes the retired Raydium/USDC vault design. Stabled launches run on Pump with USDC quotes; see the README and `MIGRATION-STABLED.md`. Kept for existing claims and allocations.
+
+
 Program: `9YKKi1RQgT8uco9Cecj849btWboxQ2qxYA4GXmYGHLkE`.
 This is an implementation test report, not an independent security audit or proof of mainnet deployment.
 
