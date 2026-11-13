@@ -61,7 +61,7 @@ The former Raydium platform fee and USDC vault apply only to legacy BlueMint mar
 
 See [MIGRATION-STABLED.md](MIGRATION-STABLED.md) for storage separation, production flags and limits. Product documentation is served at `/docs`; creator-fee guidance at `/fees`; legacy claims at `/fees/legacy`.
 
-`PUBLIC_URL` in `render.yaml` still points at `https://memebase.fun`. Change it, and the custom domain on the Render service, when the Stabled domain is ready; wallet sign-in and metadata URLs follow that value. Keep the old origin reachable so metadata URLs of already-minted coins keep resolving.
+The public origin is `https://launchonstabled.fun` (`PUBLIC_URL`). Wallet sign-in and new metadata URLs use it. Coins minted earlier carry metadata URLs on `https://memebase.fun`; keep that domain pointed at this service so they keep resolving.
 
 ## Brand assets
 
