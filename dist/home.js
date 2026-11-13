@@ -12,9 +12,9 @@
   if(document.hidden||document.getElementById('tokenPage')&&!document.getElementById('tokenPage').hidden)return;
   try {
    const response=await fetch('/api/king',{credentials:'same-origin'});if(!response.ok)throw Error();const data=await response.json(),t=data.leader;
-   if(!t){box.innerHTML='<div class="king-empty-mark">'+crown+'</div><div><h3>The throne is open.</h3><p>The COINx coin with the most indexed volume in the last 5 minutes takes the crown.</p></div><a class="king-launch" href="/launch">Launch a contender</a>';return}
+   if(!t){box.innerHTML='<div class="king-empty-mark">'+crown+'</div><div><h3>The throne is open.</h3><p>The coin with the most indexed USDC volume in the last 5 minutes takes the crown.</p></div><a class="king-launch" href="/launch">Launch a contender</a>';return}
    const units=BigInt(t.volume5mUnits),fraction=(units%100000000n).toString().padStart(8,'0').replace(/0+$/,'');const volume=(units/100000000n).toLocaleString()+(fraction?'.'+fraction:'');
-   box.innerHTML=`<a class="king-token" href="/token/${esc(t.mint)}"><img src="${esc(t.pfp)}" alt="${esc(t.name)}"><div><span class="king-tag">REIGNING MEME</span><h3>${esc(t.name)}</h3><p>${esc(t.ticker)} / COINx</p></div></a><div class="king-volume"><span>5 MIN VOLUME · INDEXED</span><strong>${volume} <small>COINx</small></strong></div><a class="king-launch" href="/token/${esc(t.mint)}">View coin</a>`;
+   box.innerHTML=`<a class="king-token" href="/token/${esc(t.mint)}"><img src="${esc(t.pfp)}" alt="${esc(t.name)}"><div><span class="king-tag">REIGNING MEME</span><h3>${esc(t.name)}</h3><p>${esc(t.ticker)} / USDC</p></div></a><div class="king-volume"><span>5 MIN VOLUME · INDEXED</span><strong>${volume} <small>USDC</small></strong></div><a class="king-launch" href="/token/${esc(t.mint)}">View coin</a>`;
   }catch{box.innerHTML='<div class="king-empty-mark">'+crown+'</div><div><h3>Checking the throne…</h3><p>Rolling volume is temporarily unavailable. Retrying shortly.</p></div>'}
  }
  refreshKing();setInterval(refreshKing,15000);window.addEventListener('bluemint:refresh',refreshKing);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshKing()});
