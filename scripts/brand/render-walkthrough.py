@@ -180,7 +180,7 @@ if __name__=='__main__':
     if mode=='stills':
         for i,t in ((0,3.3),(0,5.5),(1,2.5),(1,4.8),(2,4.5),(3,4.6),(4,1.5),(4,5.6)):frame(i,t).save(f'{outdir}/still_{i+1}_{t}.png')
     else:
-        for i in range(5):
+        for i in ([int(a) for a in sys.argv[3:]] or range(5)):
             tmp=f'{outdir}/scene{i}.tmp.mp4'
             p=subprocess.Popen(['ffmpeg','-y','-loglevel','error','-f','rawvideo','-pix_fmt','rgb24','-s',f'{W*S}x{H*S}','-r',str(FPS),'-i','-','-c:v','libx264','-preset','slow','-crf','20','-tune','animation','-pix_fmt','yuv420p','-g','30',tmp],stdin=subprocess.PIPE)
             for n in range(6*FPS):p.stdin.write(frame(i,n/FPS).tobytes())

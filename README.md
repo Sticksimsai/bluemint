@@ -65,4 +65,4 @@ See [MIGRATION-STABLED.md](MIGRATION-STABLED.md) for storage separation, product
 
 ## Brand assets
 
-`scripts/brand/render-logo.py` draws the pixel mark and `scripts/brand/render-walkthrough.py` renders the 30-second hero video (Pillow and ffmpeg). Both write to a directory passed on the command line; the committed copies live in `dist/assets/`.
+`scripts/brand/render-logo.py` draws the pixel coin mark and `scripts/brand/render-walkthrough.py` renders the 30-second hero video (Pillow and ffmpeg). Both write to a directory passed on the command line; the committed copies live in `dist/assets/`.
