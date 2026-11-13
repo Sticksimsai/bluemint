@@ -23,7 +23,7 @@ No table is altered and no row is rewritten.
 
 `LAUNCH_MODE=pump`, `ENABLE_PUMP_MINTING=true`. Keep the existing mainnet RPC, legacy Raydium identifiers, treasury and keeper configuration. No new secret or on-chain program deployment is needed. `USDC_QUOTE_MINT` already holds the mainnet USDC mint for the legacy network check.
 
-`PUBLIC_URL` is unchanged by this migration. Update it together with the Render custom domain when the new domain is live, and keep the old origin serving so earlier metadata URLs resolve.
+`PUBLIC_URL` is `https://launchonstabled.fun`. Add that custom domain to the Render service, and keep `memebase.fun` attached so metadata URLs of earlier coins resolve.
 
 ## Launch path
 
