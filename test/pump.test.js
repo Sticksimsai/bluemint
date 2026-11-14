@@ -2,7 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Keypair,PublicKey} from '@solana/web3.js';
 import BN from 'bn.js';
-import {usdcUnits,USDC,COINX,PUMP_QUOTES,pumpQuote,verifyPumpCurve} from '../server/pump.js';
+import {usdcUnits,USDC,COINX,PUMP_QUOTES,pumpQuote,verifyPumpCurve,metadataDigest} from '../server/pump.js';
+import {PUMP_SDK} from '@pump-fun/pump-sdk';
+import {TransactionMessage,VersionedTransaction} from '@solana/web3.js';
+import {TOKEN_2022_PROGRAM_ID,TOKEN_PROGRAM_ID} from '@solana/spl-token';
 import {createStore} from '../server/store.js';
 import {createApp} from '../server/index.js';
 import {hash} from '../server/domain.js';
@@ -47,4 +50,19 @@ test('Pump mode binds new profiles to USDC, preserves legacy profiles and reject
   const blocked=await fetch(base+'/api/launches/'+old.id+'/prepare',{method:'POST',headers,body:'{}'});assert.equal(blocked.status,409);
   const disabled=await fetch(base+'/api/launches/'+row.id+'/prepare',{method:'POST',headers,body:'{}'});assert.equal(disabled.status,503);
  }finally{await new Promise(resolve=>app.server.close(resolve))}
+});
+
+test('a create plus USDC developer buy fits one packet on the production origin',async()=>{
+ const digest=metadataDigest('{"name":"x"}');assert.match(digest,/^[A-Za-z0-9_-]{22}$/);
+ const quoteMint=new PublicKey(USDC),uri='https://launchonstabled.fun/m/'+digest;
+ const size=async(name,symbol)=>{
+  const mint=Keypair.generate().publicKey,user=Keypair.generate().publicKey;
+  const instructions=[await PUMP_SDK.createV2Instruction({mint,name,symbol,uri,creator:user,user,mayhemMode:false,cashback:false,holderReward:false,quoteMint,quoteTokenProgram:TOKEN_PROGRAM_ID}),...await PUMP_SDK.buyV3Instructions({bondingCurve:{creator:user,quoteMint},associatedUserAccountInfo:null,mint,user,amount:new BN(1000),quoteAmount:new BN(100000000),slippage:0,tokenProgram:TOKEN_2022_PROGRAM_ID,quoteTokenProgram:TOKEN_PROGRAM_ID})];
+  const tx=new VersionedTransaction(new TransactionMessage({payerKey:user,recentBlockhash:'11111111111111111111111111111111',instructions}).compileToV0Message());
+  return tx.message.serialize().length+1+tx.signatures.length*64;
+ };
+ // Name and ticker share the remaining room: 28 characters between them.
+ assert.ok(await size('N'.repeat(22),'TICKER')<=1232);
+ assert.ok(await size('Stabled launch coin','STBL')<=1232);
+ assert.ok(await size('N'.repeat(32),'T'.repeat(10))>1232);
 });

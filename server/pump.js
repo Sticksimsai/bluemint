@@ -18,6 +18,7 @@ export const PUMP_QUOTES=Object.freeze({
 });
 // Profiles are immutable, so a coin's quote is whatever its profile recorded.
 export function pumpQuote(item){const quote=PUMP_QUOTES[item?.quoteMint];assert(quote,'Unsupported Pump quote asset',409);return quote}
+export const metadataDigest=metadata=>createHash('sha256').update(metadata).digest().subarray(0,16).toString('base64url');
 export function usdcUnits(value){assert(typeof value==='string'&&/^\d{1,11}(\.\d{1,6})?$/.test(value),'USDC amount must have at most six decimals');const [a,b='']=value.split('.');return (BigInt(a)*1000000n+BigInt(b.padEnd(6,'0'))).toString()}
 export function verifyPumpCurve(curve,mint,owner,quoteMint=USDC){assert(curve.quoteMint.toBase58()===quoteMint&&curve.creator.toBase58()===owner&&!curve.isMayhemMode&&!curve.isHolderReward,'Pump curve identity mismatch',409);assert(curve.tokenTotalSupply.gt(new BN(0)),'Invalid Pump supply',409)}
 export function createPumpChain(store,env=process.env){
@@ -37,7 +38,10 @@ export function createPumpChain(store,env=process.env){
   const mint=Keypair.generate(),user=new PublicKey(item.owner),pool=bondingCurvePda(mint.publicKey);
   const tokenPage=origin+'/token/'+mint.publicKey;
   const metadata=JSON.stringify({name:item.name,symbol:item.ticker,description:item.desc,image:origin+'/api/launches/'+item.id+'/image',external_url:item.website||tokenPage,extensions:{twitter:item.twitter,website:item.website||tokenPage},properties:{mint:mint.publicKey.toBase58(),tokenPage,profileHash:item.profileHash,quoteMint:USDC,protocol:'pump'}});
-  const digest=createHash('sha256').update(metadata).digest('base64url');
+  // The metadata link is stored on-chain inside the create instruction, so its
+  // length counts against the 1232-byte packet. A 128-bit digest keeps it short
+  // enough for a create plus a USDC developer buy in one transaction.
+  const digest=metadataDigest(metadata);
   const args={mint:mint.publicKey,name:item.name,symbol:item.ticker,uri:origin+'/m/'+digest,creator:user,user,mayhemMode:false,cashback:false,holderReward:false,quoteMint,quoteTokenProgram:quote.quoteTokenProgram};
   const budget=new BN(item.devBuyQuoteUnits||'0');let instructions;
   if(budget.isZero())instructions=[await PUMP_SDK.createV2Instruction(args)];
@@ -46,7 +50,7 @@ export function createPumpChain(store,env=process.env){
   // budget already grants enough compute. Avoid an extra program key so
   // the atomic USDC transaction fits the 1232-byte packet limit.
   if(budget.isZero())instructions.unshift(ComputeBudgetProgram.setComputeUnitLimit({units:700000}));
-  const recent=await rpc.getLatestBlockhashAndContext('confirmed');const tx=new VersionedTransaction(new TransactionMessage({payerKey:user,recentBlockhash:recent.value.blockhash,instructions}).compileToV0Message());const packetSize=tx.message.serialize().length+1+tx.signatures.length*64;assert(packetSize<=1232,'Pump launch exceeds transaction size limit ('+packetSize+' bytes). Shorten the token name or ticker.',422);tx.sign([mint]);assert(tx.serialize().length<=1232,'Pump launch exceeds transaction size limit',422);
+  const recent=await rpc.getLatestBlockhashAndContext('confirmed');const tx=new VersionedTransaction(new TransactionMessage({payerKey:user,recentBlockhash:recent.value.blockhash,instructions}).compileToV0Message());const packetSize=tx.message.serialize().length+1+tx.signatures.length*64;assert(packetSize<=1232,budget.isZero()?'This launch is too large for one Solana transaction. Shorten the token name by '+(packetSize-1232)+' characters.':'A launch with a developer buy has less room for the name. Shorten the token name by '+(packetSize-1232)+' characters, or launch without a developer buy and buy afterwards.',422);tx.sign([mint]);assert(tx.serialize().length<=1232,'Pump launch exceeds transaction size limit',422);
   const sim=await rpc.simulateTransaction(tx,{sigVerify:false,commitment:'confirmed',accounts:{encoding:'base64',addresses:[pool.toBase58(),mint.publicKey.toBase58()]}});
   if(sim.value.err){console.error('pump_simulation_failed',JSON.stringify(sim.value.err),(sim.value.logs||[]).slice(-8));assert(false,'Pump launch simulation failed: '+JSON.stringify(sim.value.err)+'. Check SOL creation costs and USDC balance.',422);}
   const [c,m]=sim.value.accounts||[];assert(c?.owner===PUMP_PROGRAM_ID.toBase58()&&m?.owner===TOKEN_2022_PROGRAM_ID.toBase58(),'Unexpected simulated Pump accounts',422);

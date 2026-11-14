@@ -64,7 +64,7 @@ if(path==='/api/watchlist'&&req.method==='POST'){const x=await body(req);assert(
 if(path==='/api/events'&&req.method==='GET'){assert(clients.size<100,'Stream capacity reached',503);res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'});res.write('event: connected\ndata: {}\n\n');clients.add(res);req.on('close',()=>clients.delete(res));return}
 throw new AppError(404,'API endpoint not found')}
 if(req.method==='GET'||req.method==='HEAD'){
-  const metadata=path.match(/^\/m\/([a-zA-Z0-9_-]{43})$/);
+  const metadata=path.match(/^\/m\/([a-zA-Z0-9_-]{22}|[a-zA-Z0-9_-]{43})$/);
   if(metadata){
     const row=store.db.prepare('SELECT json FROM mint_metadata WHERE digest=?').get(metadata[1]);
     assert(row,'Metadata not found',404);
